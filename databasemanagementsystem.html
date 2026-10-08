@@ -1,0 +1,1157 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Employee Database Management</title>
+	<style>
+		@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap');
+		:root { font-family: 'DM Sans', 'Segoe UI', sans-serif; color: #1c2b3a; background: #eef3f5; --ink: #1c2b3a; --muted: #657585; --navy: #12344b; --teal: #087f8c; --line: #d9e3e8; --soft: #f7fafb; --danger: #b43b3b; --page-bg-1: #eef3f5; --page-bg-2: #f8fafb; --page-bg-3: #e9f2f2; --panel-bg: rgba(255, 255, 255, .94); --panel-border: rgba(217, 227, 232, .9); --panel-shadow: rgba(23, 52, 70, .07); --field-bg: white; --field-border: #c7d5dc; --th-bg: #e5f0f1; --row-hover: #f2f8f8; --dialog-bg: white; --dialog-backdrop: #12344b99; --records-even: #f6f9fa; --records-hover: #e8f4f3; --select-hl-bg: #f7fbfb; --select-hl-border: #a9c9ce; --select-hl-hover: #eef8f7; }
+		* { box-sizing: border-box; }
+		body { margin: 0; min-height: 100vh; color: var(--ink); background: linear-gradient(145deg, var(--page-bg-1) 0%, var(--page-bg-2) 55%, var(--page-bg-3) 100%); }
+		header { color: white; padding: 34px clamp(20px, 6vw, 88px) 38px; background: var(--navy); border-bottom: 4px solid #36b5ad; }
+		.header-inner { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+		.brand { display: flex; align-items: center; gap: 14px; }
+		.brand-logo { display: block; height: 60px; width: auto; flex: 0 0 auto; }
+		header h1 { margin: 0 0 5px; font-family: 'Space Grotesk', sans-serif; font-size: clamp(1.6rem, 3vw, 2.35rem); letter-spacing: .01em; }
+		header p { margin: 0; color: #c7dce1; font-size: .96rem; }
+		main { max-width: 1480px; margin: 28px auto; padding: 0 22px; }
+		.panel { background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 10px; padding: 22px; margin-bottom: 20px; box-shadow: 0 8px 26px var(--panel-shadow); }
+		.toolbar { display: flex; flex-wrap: wrap; gap: 11px; align-items: center; }
+		input, button { font: inherit; }
+		input[type="text"], input[type="number"], input[type="file"], input[type="week"], select { border: 1px solid var(--field-border); border-radius: 6px; padding: 10px 12px; color: var(--ink); background: var(--field-bg); }
+		select { min-height: 42px; cursor: pointer; }
+		input:focus, select:focus { outline: 3px solid #087f8c22; border-color: var(--teal); }
+		#search { flex: 1 1 260px; }
+		button { border: 0; border-radius: 6px; padding: 10px 15px; cursor: pointer; background: var(--teal); color: white; font-weight: 600; transition: transform .15s ease, filter .15s ease; }
+		button.secondary { background: #e6eef1; color: var(--navy); }
+		button.danger { background: var(--danger); }
+		button:hover { filter: brightness(.94); transform: translateY(-1px); }
+		button:disabled { opacity: .6; cursor: default; transform: none; filter: none; }
+		.hint, .report-note { color: var(--muted); font-size: .9rem; margin: 13px 0 0; }
+		.stats { margin: 0 0 12px; color: var(--muted); font-size: .9rem; font-weight: 600; }
+		.table-wrap { overflow: auto; max-height: 62vh; border: 1px solid var(--line); border-radius: 7px; }
+		table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 700px; }
+		th, td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+		th { position: sticky; top: 0; background: var(--th-bg); color: var(--navy); cursor: pointer; font-size: .78rem; letter-spacing: .04em; text-transform: uppercase; }
+		tbody tr:last-child td { border-bottom: 0; }
+		tr:hover td { background: var(--row-hover); }
+		.actions { display: flex; gap: 6px; }
+		.actions button { padding: 6px 10px; font-size: .82rem; }
+		dialog { border: 0; border-radius: 10px; padding: 0; width: min(540px, calc(100% - 30px)); box-shadow: 0 18px 55px #12344b44; background: var(--dialog-bg); color: var(--ink); }
+		dialog::backdrop { background: var(--dialog-backdrop); }
+		form { padding: 26px; }
+		form h2, #summaryView h2 { margin: 0; font-family: 'Space Grotesk', sans-serif; color: var(--navy); }
+		label { display: block; margin: 14px 0 6px; font-weight: 600; color: #405565; }
+		form input { width: 100%; }
+		.form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
+		.empty { text-align: center; padding: 40px; color: var(--muted); }
+		.tabs { display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 1px solid var(--line); }
+		.tab { border-radius: 6px 6px 0 0; background: transparent; color: var(--muted); }
+		.tab.active { background: var(--navy); color: white; }
+		/* Professional employee database selector */
+		.employee-source-picker {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			margin-right: 10px;
+			padding: 5px 6px 5px 12px;
+			border: 1px solid var(--line);
+			border-radius: 12px;
+			background: rgba(255,255,255,.96);
+			box-shadow: 0 3px 12px rgba(18,52,75,.07);
+			transition: border-color .18s ease, box-shadow .18s ease;
+		}
+		.employee-source-picker:hover {
+			border-color: #9bbfc3;
+			box-shadow: 0 5px 16px rgba(18,52,75,.10);
+		}
+		.employee-source-picker:focus-within {
+			border-color: #6daeb4;
+			box-shadow: 0 0 0 3px rgba(109,174,180,.16), 0 5px 16px rgba(18,52,75,.10);
+		}
+		.employee-source-picker label {
+			display: inline-flex;
+			align-items: center;
+			gap: 7px;
+			margin: 0;
+			font-size: .72rem;
+			font-weight: 800;
+			letter-spacing: .045em;
+			text-transform: uppercase;
+			color: var(--muted);
+			white-space: nowrap;
+		}
+		.employee-source-picker label::before {
+			content: "▦";
+			display: inline-grid;
+			place-items: center;
+			width: 24px;
+			height: 24px;
+			border-radius: 7px;
+			background: var(--soft);
+			color: var(--navy);
+			font-size: 14px;
+			line-height: 1;
+		}
+		.employee-source-picker select {
+			min-height: 38px;
+			min-width: 185px;
+			padding: 7px 36px 7px 12px;
+			border: 1px solid transparent;
+			border-radius: 9px;
+			outline: none;
+			font-family: inherit;
+			font-size: .88rem;
+			font-weight: 750;
+			color: var(--navy);
+			background-color: #f7fafb;
+			cursor: pointer;
+			appearance: none;
+			-webkit-appearance: none;
+			background-image:
+				linear-gradient(45deg, transparent 50%, currentColor 50%),
+				linear-gradient(135deg, currentColor 50%, transparent 50%);
+			background-position:
+				calc(100% - 17px) 16px,
+				calc(100% - 12px) 16px;
+			background-size: 5px 5px, 5px 5px;
+			background-repeat: no-repeat;
+			transition: background-color .18s ease, border-color .18s ease;
+		}
+		.employee-source-picker select:hover { background-color: #eef5f6; }
+		.employee-source-picker select:focus {
+			border-color: #a9c9cc;
+			background-color: #fff;
+		}
+		.employee-source-picker select option {
+			font-weight: 600;
+			color: var(--navy);
+			background: #fff;
+		}
+		@media (max-width: 720px) {
+			.employee-source-picker {
+				width: 100%;
+				margin: 0 0 8px;
+				justify-content: space-between;
+			}
+			.employee-source-picker select {
+				flex: 1;
+				min-width: 150px;
+			}
+		}
+		.report-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; min-width: 0; }
+		.report-card { min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 18px; background: var(--soft); transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+		.report-card:hover { border-color: #8bbfc3; box-shadow: 0 9px 20px rgba(18, 52, 75, .1); transform: translateY(-2px); }
+		.report-card h3 { margin: 0 0 14px; font-family: 'Space Grotesk', sans-serif; font-size: 1rem; color: var(--navy); }
+		.metric { font-size: 2.2rem; font-weight: 700; color: var(--teal); }
+		.report-card.metric-clickable { cursor: pointer; }
+		.report-card.metric-clickable:focus-visible { outline: 3px solid #087f8c55; outline-offset: 2px; }
+		.report-card.metric-clickable .metric-label::after { content: ' — click to view records'; opacity: .65; font-size: .82em; }
+		.metric-label { color: var(--muted); font-size: .88rem; }
+		.report-wide { grid-column: span 2; }
+		.chart-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 3fr) 42px; align-items: center; gap: 9px; margin: 11px 0; font-size: .9rem; }
+		.chart-row span { min-width: 0; overflow-wrap: anywhere; }
+		.chart-row strong { text-align: right; color: #526574; }
+		.chart-row { border-radius: 6px; padding: 4px 5px; margin-left: -5px; margin-right: -5px; transition: background-color .15s ease; }
+		.chart-row:hover { background: #e7f2f2; }
+		.bar-track { height: 12px; background: #e1ebee; border-radius: 6px; overflow: hidden; }
+		.bar { height: 100%; min-width: 3px; background: var(--teal); border-radius: 6px; }
+		.chart-row { cursor: pointer; transition: background .15s ease, transform .15s ease; border-radius: 8px; padding: 5px 7px; margin: 2px -7px; }
+		.chart-row:hover { background: #eef6f7; transform: translateX(2px); }
+		.chart-row:focus-visible { outline: 2px solid #1769aa; outline-offset: 2px; }
+		.chart-row:hover .bar { filter: brightness(.92) saturate(1.15); transform: scaleY(1.15); transform-origin: center; }
+		.report-note { color: var(--muted); margin: 0; font-size: .9rem; }
+		.chart-row { cursor: pointer; }
+		.chart-row:focus-visible { outline: 3px solid #087f8c55; outline-offset: 2px; }
+		.chart-filter-label { margin-top: 18px; }
+		#departmentPositionSelect, #summaryDepartmentPositionSelect { width: 100%; margin-bottom: 12px; background: var(--select-hl-bg); border-color: var(--select-hl-border); font-weight: 600; }
+		#departmentPositionSelect:not(:disabled):hover, #summaryDepartmentPositionSelect:not(:disabled):hover { border-color: var(--teal); background: var(--select-hl-hover); }
+		#summaryGroupBy { width: 100%; margin-bottom: 12px; background: var(--select-hl-bg); border-color: var(--select-hl-border); font-weight: 600; }
+		#summaryGroupBy:hover { border-color: var(--teal); background: var(--select-hl-hover); }
+		.report-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+		.report-toolbar label { margin: 0; color: #52647a; font-weight: bold; }
+		.report-toolbar input { border: 1px solid #cbd5e1; border-radius: 7px; padding: 9px; }
+		.report-toolbar button { margin-left: auto; }
+		#departmentFilter, #genderFilter { min-width: 170px; border: 1px solid #cbd5e1; border-radius: 7px; padding: 9px 10px; background: #fff; color: var(--ink); }
+		#departmentFilter:focus, #genderFilter:focus { outline: none; border-color: #1769aa; box-shadow: 0 0 0 3px rgba(23,105,170,.12); }
+		#clearTableFilters { white-space: nowrap; }
+		.records-filter-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+		.records-filter-row select { min-width: 165px; border: 1px solid #cbd5e1; border-radius: 7px; padding: 8px 10px; background: #fff; color: var(--ink); }
+		@media (max-width: 700px) { #departmentFilter, #genderFilter, #clearTableFilters { width: 100%; } }
+		.report-toolbar select, .report-toolbar input[type="month"] { border: 1px solid #cbd5e1; border-radius: 7px; padding: 9px 10px; background: white; color: var(--ink); }
+		.report-toolbar .period-control { display: flex; align-items: center; gap: 7px; }
+		.report-toolbar .period-control label { margin: 0; color: #52647a; font-weight: bold; }
+		.gender-department-row { display: grid; grid-template-columns: minmax(160px, 1.2fr) repeat(2, minmax(70px, .45fr)) minmax(100px, 1fr); align-items: center; gap: 9px; margin: 9px 0; font-size: .88rem; }
+		.gender-department-row strong { text-align: right; color: #526574; }
+		.gender-department-row .gender-pair { display: flex; gap: 4px; align-items: center; }
+		.gender-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; background: var(--teal); }
+		.gender-dot.female { background: #d17b00; }
+		.gender-department-row .total-bar { height: 10px; background: #e1ebee; border-radius: 5px; overflow: hidden; }
+		.gender-department-row { cursor: pointer; transition: background .15s ease, transform .15s ease; border-radius: 8px; padding: 7px; margin: 2px -7px; }
+		.gender-department-row:hover { background: #eef6f7; transform: translateX(2px); }
+		.gender-department-row:focus-visible { outline: 2px solid #1769aa; outline-offset: 2px; }
+		.gender-department-row .total-bar { display: flex; height: 12px; background: #e6edf0; border-radius: 6px; overflow: hidden; }
+		.gender-department-row .total-bar .male-bar { height: 100%; background: #1769aa; }
+		.gender-department-row .total-bar .female-bar { height: 100%; background: #d17b00; }
+		.gender-department-row .total-bar .other-bar { height: 100%; background: #7b61a8; }
+		.gender-department-note { color: var(--muted); font-size: .8rem; margin: 0 0 8px; }
+		@media (max-width: 700px) { .gender-department-row { grid-template-columns: 1fr 55px 55px; } .gender-department-row .total-bar { grid-column: 1 / -1; width: 100% !important; } }
+
+		.sync-note { width: 100%; margin: 0; }
+		.records-dialog-content { width: min(1480px, calc(100vw - 48px)); max-height: min(88vh, 920px); padding: 32px; background: var(--dialog-bg); color: var(--ink); border-top: 5px solid var(--teal); }
+		#recordsDialog { width: min(96vw, 1800px); max-width: none; max-height: 92vh; padding: 0; }
+		.records-dialog-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+		.records-dialog-header h2 { margin: 0; font-family: 'Space Grotesk', sans-serif; color: var(--navy); font-size: 1.65rem; }
+		.records-dialog-header .report-note { margin-top: 5px; }
+		#recordsDialog .table-wrap { max-height: 68vh; border-radius: 8px; background: #fbfdfe; }
+		#recordsDialog table { min-width: 1100px; }
+		#recordsDialog th { background: var(--navy); color: white; font-size: .72rem; }
+		#recordsDialog tbody tr:nth-child(even) td { background: var(--records-even); }
+		#recordsDialog tbody tr:hover td { background: var(--records-hover); }
+		@media print { #recordsDialog { display: none !important; } }
+		@media (max-width: 800px) { .report-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .report-wide { grid-column: span 2; } }
+		@media (max-width: 520px) { main { padding: 0 12px; } .panel { padding: 15px; } .brand { align-items: center; gap: 9px; } .brand-logo { height: 42px; width: auto; } .report-grid { grid-template-columns: 1fr; gap: 12px; } .report-wide { grid-column: span 1; } .chart-row { grid-template-columns: minmax(0, 1fr) 38px; gap: 6px 8px; } .chart-row span { grid-column: 1; } .chart-row .bar-track { grid-column: 1; } .chart-row strong { grid-column: 2; grid-row: 1 / span 2; } .report-toolbar button { margin-left: 0; } #recordsDialog { width: calc(100vw - 12px); } .records-dialog-content { width: 100%; max-height: 90vh; padding: 20px; } .records-dialog-header { align-items: stretch; flex-direction: column; gap: 12px; } .records-dialog-header h2 { font-size: 1.3rem; } .records-dialog-header button { align-self: flex-start; } #recordsDialog .table-wrap { max-height: 70vh; } }
+		@media (prefers-reduced-motion: reduce) { .report-card, .chart-row, .bar, button { transition: none; } .report-card:hover { transform: none; } }
+		#summaryView .report-toolbar { margin-bottom: 10px; }
+		#summaryView .report-grid { gap: 10px; }
+		#summaryView .report-card { padding: 12px 14px; }
+		#summaryView .report-card h3 { margin: 0 0 6px; font-size: .88rem; }
+		#summaryView .metric { font-size: 1.55rem; }
+		#summaryView .metric-label { font-size: .76rem; }
+		#summaryView .chart-row { margin: 3px 0; gap: 6px; font-size: .8rem; }
+		#summaryView .bar-track { height: 9px; }
+		#summaryView .chart-filter-label { margin-top: 10px; margin-bottom: 4px; font-size: .78rem; }
+		#summaryView #summaryDepartmentPositionSelect { margin-bottom: 6px; padding: 6px 9px; font-size: .85rem; }
+		#summaryView #summaryGroupBy { margin-bottom: 6px; padding: 6px 9px; font-size: .85rem; }
+		#summaryView .report-note { margin-top: 6px; font-size: .8rem; }
+		@media print {
+			*, *::before, *::after { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+			body { background: white; color: #1c2b3a; }
+			header, .tabs, .data-view, #summaryView, .report-toolbar label, #reportWeek, #reportDepartment, #reportPosition, #printReport, .chart-filter-label, #departmentPositionSelect, #summaryDepartmentPositionSelect, .employee-source-picker { display: none !important; }
+			main { max-width: none; margin: 0; padding: 0; }
+			#reportView { display: block !important; padding: 0; margin: 0; box-shadow: none; }
+			#reportView::before { content: '1Life Manpower Report'; display: block; margin-bottom: 18px; font-size: 1.5rem; font-weight: bold; color: #173b67; }
+			.report-card { break-inside: avoid; background: #f7fafb !important; border-color: #b8cbd1 !important; }
+			.report-card h3 { color: #12344b !important; }
+			.metric { color: #087f8c !important; }
+			.metric-label, .report-note { color: #526574 !important; }
+			.bar-track { background: #d5e4e7 !important; }
+			.bar { opacity: 1 !important; }
+		}
+	</style>
+</head>
+<body>
+	<header>
+		<div class="header-inner">
+			<div class="brand">
+				<img class="brand-logo" src="logo.png" alt="1Life logo">
+				<div>
+					<h1>Manpower Report</h1>
+					<p>Connecting Filipinos to Better Health</p>
+				</div>
+			</div>
+		</div>
+	</header>
+	<main>
+		<nav class="tabs" aria-label="Database views">
+			<div class="employee-source-picker" title="Choose which employee database to display">
+				<label for="employeeSource">Employee Database</label>
+				<select id="employeeSource" aria-label="Choose employee database">
+					<option value="ACTIVE EMPLOYEES">Active Employees</option>
+					<option value="1CURE EMPLOYEES">1Cure Employees</option>
+				</select>
+			</div>
+			<button class="tab active" data-tab="dataView">Employees</button>
+			<button class="tab" data-tab="reportView">Reports</button>
+			<button class="tab" data-tab="summaryView">Summary</button>
+		</nav>
+		<section class="panel data-view">
+			<div class="toolbar">
+				<button id="loadSheet" class="secondary">🔄 Load from Google Sheet</button>
+				<button id="autoRefreshToggle" class="secondary">▶️ Start auto-refresh</button>
+				<button id="clear" class="secondary">Clear data</button>
+				<p id="syncNote" class="hint sync-note"></p>
+			</div>
+			<p class="hint">Data loads directly from the connected Google Sheet. Click "Load from Google Sheet" or turn on auto-refresh to keep it in sync.</p>
+		</section>
+		<section class="panel data-view">
+			<div class="toolbar">
+				<input id="search" type="text" placeholder="Search all employee fields...">
+				<select id="departmentFilter" aria-label="Filter by department"><option value="">All Departments</option></select>
+				<select id="genderFilter" aria-label="Filter by gender"><option value="">All Genders</option></select>
+				<button id="clearTableFilters" type="button" class="secondary">Clear filters</button>
+				<span id="stats" class="stats"></span>
+			</div>
+			<div class="table-wrap">
+				<table><thead id="head"></thead><tbody id="body"></tbody></table>
+			</div>
+		</section>
+		<section id="reportView" class="panel" hidden>
+			<div class="report-toolbar">
+				<div class="period-control">
+					<label for="reportPeriod">Report period</label>
+					<select id="reportPeriod">
+						<option value="week">Weekly</option>
+						<option value="month">Monthly</option>
+					</select>
+				</div>
+				<div id="weekControl" class="period-control">
+					<label for="reportWeek">Week</label>
+					<input id="reportWeek" type="week">
+				</div>
+				<div id="monthControl" class="period-control" hidden>
+					<label for="reportMonth">Month</label>
+					<input id="reportMonth" type="month">
+				</div>
+				<button id="printReport">Print report</button>
+			</div>
+			<div class="report-grid">
+				<div class="report-card metric-clickable" data-metric="activity" role="button" tabindex="0" aria-label="View records for weekly activity"><h3>Weekly activity</h3><div id="reportActivity" class="metric">0</div><div class="metric-label">employee events in selected week</div></div>
+				<div class="report-card metric-clickable" data-metric="hires" role="button" tabindex="0" aria-label="View records for new hires"><h3>New hires</h3><div id="reportHires" class="metric">0</div><div class="metric-label">hiring dates in selected week</div></div>
+				<div class="report-card metric-clickable" data-metric="evaluations" role="button" tabindex="0" aria-label="View records for evaluations"><h3>Evaluations</h3><div id="reportEvaluations" class="metric">0</div><div class="metric-label">1st and 2nd evaluations due</div></div>
+				<div class="report-card metric-clickable" data-metric="regularizations" role="button" tabindex="0" aria-label="View records for regularizations"><h3>Regularizations</h3><div id="reportRegularizations" class="metric">0</div><div class="metric-label">regularization dates in selected week</div></div>
+				<div class="report-card report-wide"><h3>Weekly hires by department</h3><div id="departmentChart"></div><label class="chart-filter-label" for="departmentPositionSelect">Job positions in selected department</label><select id="departmentPositionSelect"><option value="">Select a department above</option></select><div id="departmentPositionChart"></div></div>
+				<div class="report-card"><h3>Weekly hires by status</h3><div id="statusChart"></div></div>
+				<div class="report-card"><h3 id="genderChartTitle">Weekly hires by gender</h3><div id="genderChart"></div></div>
+				<div class="report-card report-wide"><h3 id="genderDepartmentTitle">Gender by department</h3><p class="gender-department-note">Male and female counts for employees hired in the selected period.</p><div id="genderDepartmentChart"></div></div>
+				<div class="report-card report-wide"><h3>Activity by day</h3><div id="dayChart"></div></div>
+				<div class="report-card"><h3>Event mix</h3><div id="eventChart"></div></div>
+				<div class="report-card report-wide"><h3>Hiring trend</h3><div id="trendChart"></div></div>
+			</div>
+		</section>
+		<section id="summaryView" class="panel" hidden>
+			<div class="report-toolbar">
+				<div><h2>All records summary</h2><p class="report-note">Summary of every employee currently loaded.</p></div>
+			</div>
+			<div class="report-grid">
+				<div class="report-card metric-clickable" data-metric="summaryTotal" role="button" tabindex="0" aria-label="View all records"><h3>Total records</h3><div id="summaryTotal" class="metric">0</div><div class="metric-label">all loaded employee records</div></div>
+				<div class="report-card metric-clickable" data-metric="summaryComplete" role="button" tabindex="0" aria-label="View complete records"><h3>Complete records</h3><div id="summaryComplete" class="metric">0</div><div class="metric-label">records with every field filled</div></div>
+				<div class="report-card metric-clickable" data-metric="summaryFields" role="button" tabindex="0" aria-label="View tracked fields"><h3>Fields tracked</h3><div id="summaryFields" class="metric">0</div><div class="metric-label">columns in the current dataset</div></div>
+				<div class="report-card report-wide"><h3 id="summaryGroupTitle">All records by department</h3>
+					<select id="summaryGroupBy" aria-label="Group all records by"><option value="department">All records by department</option><option value="division">All records by division</option></select>
+					<div id="summaryDepartmentChart"></div>
+					<label class="chart-filter-label" for="summaryDepartmentPositionSelect" id="summaryPositionLabel">Job positions in selected department</label>
+					<select id="summaryDepartmentPositionSelect"><option value="">Select a department above</option></select>
+					<div id="summaryPositionChart"></div></div>
+				<div class="report-card"><h3>All records by status</h3><div id="summaryStatusChart"></div></div>
+				<div class="report-card"><h3>All records by gender</h3><div id="summaryGenderChart"></div></div>
+			</div>
+		</section>
+	</main>
+	<dialog id="editor"><form id="form"><h2 id="formTitle">Edit employee</h2><div id="fields"></div><div class="form-actions"><button type="button" class="secondary" id="cancel">Cancel</button><button>Save employee</button></div></form></dialog>
+	<dialog id="recordsDialog"><div class="records-dialog-content"><div class="records-dialog-header"><div><h2 id="recordsTitle">Matching records</h2><p id="recordsCount" class="report-note"></p>
+					<div class="records-filter-row">
+						<select id="recordsDepartmentFilter" aria-label="Filter records by department"><option value="">All Departments</option></select>
+						<select id="recordsGenderFilter" aria-label="Filter records by gender"><option value="">All Genders</option></select>
+						<button type="button" class="secondary" id="clearRecordsFilters">Clear filters</button>
+					</div>
+				</div><button type="button" class="secondary" id="closeRecords">Close</button></div><div class="table-wrap"><table><thead id="recordsHead"></thead><tbody id="recordsBody"></tbody></table></div></div></dialog>
+	<script>
+		const $ = id => document.getElementById(id);
+
+		// ---- Google Sheets API connection ----
+		const SHEETS_API_KEY = 'AIzaSyDJl8EhaIUTUJHrVvrkCUuDJx44grK0BJM';
+		const SPREADSHEET_ID = '1fTae243E9FuG51BSol52Pf8wQZ211jnieYX4M4l7PFU';
+		let currentSheetName = 'ACTIVE EMPLOYEES';
+		const SHEETS_API_URL = () => `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(currentSheetName)}?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER&key=${SHEETS_API_KEY}`;
+
+		const defaultColumns = ['STATUS','NEW EMP','FULL NAME (Surname, First, Middle)','NEW DESIGNATION/POSITION','NEW DIVISION/DEPARTMENT','CONTACT NO.','EMAIL ADDRESS','HIRING DATE','YEAR HIRED','GENDER','EMPLOYMENT STATUS','COMPLETE ADDRESS','TIN NO.','PHILHEALTH NO.','SSS NO.','PAG-IBIG NO.','DATE OF 1ST EVAL','DATE OF 2ND EVAL','DATE OF REGULARIZATION','DIVISION']; let rows = [], columns = [], editing = -1, sort = { key: '', dir: 1 };
+		const cellKey = value => value instanceof Date ? (Number.isNaN(value.getTime()) ? 'Invalid Date' : value.toISOString()) : String(value ?? '').trim();
+		const dedupeRows = sourceRows => { const seen = new Set(); return sourceRows.filter(row => { const key = JSON.stringify(columns.map(column => cellKey(row[column]))); if (seen.has(key)) return false; seen.add(key); return true; }); };
+		const hasData = row => columns.some(column => String(row[column] ?? '').trim() !== '');
+		const tableFilterValue = value => String(value ?? '').trim().toLowerCase();
+		const rowDepartment = row => fieldValue(row, ['new division', 'department', 'division']) || 'Unassigned';
+		const rowGender = row => fieldValue(row, ['gender', 'sex']) || 'Unspecified';
+		const refreshMainFilters = () => {
+			const department = $('departmentFilter'), gender = $('genderFilter');
+			const oldDepartment = department.value, oldGender = gender.value;
+			const departments = [...new Set(rows.map(rowDepartment))].sort((a,b) => a.localeCompare(b));
+			const genders = [...new Set(rows.map(rowGender))].sort((a,b) => a.localeCompare(b));
+			department.innerHTML = '<option value="">All Departments</option>' +
+				departments.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+			gender.innerHTML = '<option value="">All Genders</option>' +
+				genders.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+			if (departments.includes(oldDepartment)) department.value = oldDepartment;
+			if (genders.includes(oldGender)) gender.value = oldGender;
+		};
+		const matchesMainFilters = row => {
+			const department = $('departmentFilter').value;
+			const gender = $('genderFilter').value;
+			return (!department || tableFilterValue(rowDepartment(row)) === tableFilterValue(department)) &&
+				(!gender || tableFilterValue(rowGender(row)) === tableFilterValue(gender));
+		};
+
+		const draw = () => { rows = dedupeRows(rows); const query = $('search').value.toLowerCase(); let view = rows.map((r, i) => ({ r, i }))
+				.filter(x => matchesMainFilters(x.r))
+				.filter(x => Object.values(x.r).join(' ').toLowerCase().includes(query));
+			if (sort.key) {
+				if (isDateField(sort.key)) {
+					// Sort by the actual parsed date, not the raw text — otherwise a
+					// column like "16/10/2022" sorts alphabetically (wrong order),
+					// not chronologically.
+					view.sort((a, b) => {
+						const dateA = dateValue(a.r[sort.key]), dateB = dateValue(b.r[sort.key]);
+						if (!dateA && !dateB) return 0;
+						if (!dateA) return 1; // rows with no valid date always sort last
+						if (!dateB) return -1;
+						return (dateA - dateB) * sort.dir;
+					});
+				} else {
+					view.sort((a, b) => String(a.r[sort.key] ?? '').localeCompare(String(b.r[sort.key] ?? ''), undefined, { numeric: true }) * sort.dir);
+				}
+			}
+			$('stats').textContent = `${view.length} of ${rows.length} employee${rows.length === 1 ? '' : 's'}`;
+			$('head').innerHTML = columns.length ? `<tr>${columns.map(c => `<th data-key="${esc(c)}">${esc(c)} ${sort.key === c ? (sort.dir > 0 ? '▲' : '▼') : ''}</th>`).join('')}<th>Actions</th></tr>` : '';
+			$('body').innerHTML = view.length ? view.map(x => `<tr>${columns.map(c => `<td>${esc(formatCell(x.r[c], c))}</td>`).join('')}<td class="actions"><button data-edit="${x.i}">Edit</button><button class="danger" data-delete="${x.i}">Delete</button></td></tr>`).join('') : `<tr><td class="empty" colspan="${columns.length + 1}">${rows.length ? 'No matching employees.' : 'Click "Load from Google Sheet" to begin.'}</td></tr>`;
+			updateReports();
+			updateDepartmentPositionView();
+			updateSummary();
+		};
+		const esc = value => String(value ?? '').replace(/[&<>"']/g, character => ({
+			'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+		}[character]));
+		const formatCell = (value, column) => {
+			// For any recognized date column, always render as YYYY-MM-DD — using the
+			// same dateValue() parser that reports/summary rely on, so the table,
+			// the edit form, and the analytics all agree on the same calendar day.
+			// Every date in this app is anchored to UTC midnight (see dateValue), so
+			// it must be read back with the UTC getters too — reading with the local
+			// getters here would re-introduce a timezone-dependent day shift for any
+			// viewer whose browser timezone sits behind UTC.
+			if (column && isDateField(column)) {
+				const parsed = dateValue(value);
+				if (parsed) {
+					const y = parsed.getUTCFullYear(), m = parsed.getUTCMonth() + 1, d = parsed.getUTCDate();
+					return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+				}
+			}
+			if (value instanceof Date && !Number.isNaN(value.getTime())) {
+				const y = value.getUTCFullYear(), m = value.getUTCMonth() + 1, d = value.getUTCDate();
+				return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+			}
+			const text = String(value ?? '');
+			return text
+				.replace(/(\d{4}-\d{2}-\d{2})[T ].*$/, '$1')
+				.replace(/(\d{1,2}\/\d{1,2}\/\d{2,4})\s+\d{1,2}:\d{2}(:\d{2})?.*$/, '$1');
+		};
+		const normalizeHeader = value => String(value ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+		const fieldName = (row, terms) => {
+			for (const term of terms) {
+				const normalizedTerm = normalizeHeader(term);
+				const key = Object.keys(row).find(name => normalizeHeader(name).includes(normalizedTerm));
+				if (key) return key;
+			}
+			return '';
+		};
+		const fieldValue = (row, terms) => {
+			const key = fieldName(row, terms);
+			return key ? String(row[key] ?? '').trim() : '';
+		};
+		// Like fieldValue(), but returns the RAW cell value (number, Date, or string)
+		// instead of stringifying it first. Needed anywhere we're going to parse the
+		// value as a date with dateValue(): the Sheets API sends dates back as plain
+		// numbers (date serial numbers), and dateValue() only recognizes that numeric
+		// form via its `typeof value === 'number'` branch. Routing a numeric cell
+		// through fieldValue() first turns it into a bare digit string like "46700",
+		// which dateValue() can no longer identify as a date at all.
+		const fieldRawValue = (row, terms) => {
+			const key = fieldName(row, terms);
+			return key ? row[key] : undefined;
+		};
+		const isDateField = name => /birthday|hiring date|date of 1st eval|date of 2nd eval|date of regularization/i.test(name);
+		// The standalone "DIVISION" column (exactly that header) is separate from the
+		// combined "NEW DIVISION/DEPARTMENT" column, so it must not be treated as the
+		// department field in the edit form.
+		const isDivisionColumn = name => /^division$/i.test(String(name).trim());
+		const isDepartmentField = name => !isDivisionColumn(name) && /new division|department|division/i.test(name);
+		const isPositionField = name => /new designation|designation|position|job title|job/i.test(name);
+		const isGenderField = name => /gender|sex/i.test(name);
+		// ---- Summary tab: group by department OR by division ----
+		const hasDivisionColumn = () => columns.some(isDivisionColumn);
+		const rowDivision = row => { const key = columns.find(isDivisionColumn); return key ? String(row[key] ?? '').trim() : ''; };
+		const summaryGroupMode = () => $('summaryGroupBy').value;
+		const summaryGroup = row => summaryGroupMode() === 'division'
+			? (rowDivision(row) || 'Unassigned')
+			: (fieldValue(row, ['new division', 'department', 'division']) || 'Unassigned');
+		// What the second dropdown breaks each group into: departments under a
+		// division, or job positions under a department.
+		const summarySubTerms = () => summaryGroupMode() === 'division'
+			? ['new division', 'department', 'division']
+			: ['new designation/position', 'designation', 'position', 'job title', 'job'];
+		const uniqueValues = values => [...new Set(values.map(value => String(value ?? '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+		const departmentOptions = () => uniqueValues(rows.map(row => fieldValue(row, ['new division', 'department', 'division'])));
+		const positionOptions = department => department ? uniqueValues(rows.filter(row => fieldValue(row, ['new division', 'department', 'division']) === department).map(row => fieldValue(row, ['new designation/position', 'designation', 'position', 'job title', 'job']))) : [];
+		const genderOptions = () => uniqueValues(['Male', 'Female', ...rows.map(row => fieldValue(row, ['gender', 'sex']))]);
+		const createFieldControl = (name, value = '', context = {}) => {
+			const isPosition = isPositionField(name);
+			const options = isDepartmentField(name) ? departmentOptions() : isPosition ? positionOptions(context.department || '') : isGenderField(name) ? genderOptions() : [];
+			const control = (options.length || isPosition) ? document.createElement('select') : document.createElement('input');
+			control.name = name;
+			control.required = true;
+			if (control.tagName === 'SELECT') {
+				const placeholder = isPosition ? (options.length ? 'Select an option' : (context.department ? 'No known positions for this department' : 'Select a department first')) : 'Select an option';
+				control.append(new Option(placeholder, ''));
+				options.forEach(option => control.append(new Option(option, option)));
+				control.value = options.includes(value) ? value : '';
+				if (isPosition) control.disabled = !options.length;
+			} else {
+				control.type = isDateField(name) ? 'date' : 'text';
+				control.value = value;
+			}
+			return control;
+		};
+		const refreshPositionOptions = () => {
+			const positionLabel = [...$('fields').children].find(label => isPositionField(label.dataset.field));
+			if (!positionLabel) return;
+			const positionControl = positionLabel.querySelector('input, select');
+			const departmentLabel = [...$('fields').children].find(label => isDepartmentField(label.dataset.field));
+			const department = departmentLabel?.querySelector('input, select')?.value || '';
+			const currentValue = positionControl.value;
+			const replacement = createFieldControl(positionLabel.dataset.field, currentValue, { department });
+			positionLabel.replaceChild(replacement, positionControl);
+		};
+		const isoWeekValue = date => {
+			const day = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+			day.setUTCDate(day.getUTCDate() + 4 - (day.getUTCDay() || 7));
+			const yearStart = new Date(Date.UTC(day.getUTCFullYear(), 0, 1));
+			const week = Math.ceil((((day - yearStart) / 86400000) + 1) / 7);
+			return `${day.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+		};
+		const weekRange = value => {
+			const match = /^(\d{4})-W(\d{2})$/.exec(value);
+			if (!match) return null;
+			const jan4 = new Date(Date.UTC(Number(match[1]), 0, 4));
+			const monday = new Date(jan4);
+			monday.setUTCDate(jan4.getUTCDate() - (jan4.getUTCDay() || 7) + 1 + (Number(match[2]) - 1) * 7);
+			const nextMonday = new Date(monday);
+			nextMonday.setUTCDate(monday.getUTCDate() + 7);
+			return { start: monday, end: nextMonday };
+		};
+		// Robustly parse a date coming from a CSV cell. Google's published CSV sends
+		// dates as plain text (no real date type), and JS's built-in Date parser
+		// mishandles ambiguous or non-US formats (e.g. "27/08/2026" for 27 Aug 2026
+		// can come out Invalid or with day/month swapped). We handle the common
+		// spreadsheet formats explicitly instead of trusting `new Date(string)` alone.
+		const parseDateString = value => {
+			const text = String(value ?? '').trim();
+			if (!text) return null;
+			// ISO: 2026-08-27 (optionally with a time suffix)
+			let match = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(text);
+			if (match) return new Date(Date.UTC(+match[1], +match[2] - 1, +match[3]));
+			// Slash/dash numeric: could be D/M/Y or M/D/Y depending on sheet locale.
+			// This sheet's convention is day-first (D/M/Y), confirmed by unambiguous
+			// entries like 16/10/2022 and 29/11/2023 (no 16th or 29th month exists) —
+			// so when both numbers are ≤12 and genuinely ambiguous, default to D/M/Y
+			// rather than M/D/Y.
+			match = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/.exec(text);
+			if (match) {
+				let [, first, second, year] = match.map(Number);
+				if (year < 100) year += year < 50 ? 2000 : 1900;
+				let day, month;
+				if (first > 12) { day = first; month = second; }       // only valid as D/M/Y
+				else if (second > 12) { day = second; month = first; } // only valid as M/D/Y
+				else { day = first; month = second; }                  // ambiguous — default to D/M/Y
+				const date = new Date(Date.UTC(year, month - 1, day));
+				return Number.isNaN(date.getTime()) ? null : date;
+			}
+			// Fall back to the native parser for things like "Aug 27, 2026"
+			const parsed = new Date(text);
+			return Number.isNaN(parsed.getTime()) ? null : parsed;
+		};
+		const dateValue = value => {
+			if (value instanceof Date) {
+				if (Number.isNaN(value.getTime())) return null;
+				// Re-anchor to UTC midnight using the calendar day as read locally.
+				// Whatever created this Date (the sheet library, a prior timezone
+				// conversion, etc.) may have attached a time-of-day that shifts the
+				// calendar date when read back in a different timezone — this strips
+				// that out so the date can never drift by a day.
+				return new Date(Date.UTC(value.getFullYear(), value.getMonth(), value.getDate()));
+			}
+			if (typeof value === 'number') return new Date(Date.UTC(1899, 11, 30) + value * 86400000);
+			return parseDateString(value);
+		};
+		// Anchored to UTC midnight "today" so it matches how every other date in
+		// this app is compared — used to drop evaluation dates that have already
+		// passed from the Evaluations count/records.
+		const isTodayOrFuture = date => {
+			if (!date) return false;
+			const now = new Date();
+			const todayStart = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+			return date >= todayStart;
+		};
+		const isUpcomingEval = (row, terms) => {
+			// Read the RAW cell value (fieldRawValue), not the stringified one
+			// (fieldValue) — see the comment on fieldRawValue for why. Using
+			// fieldValue() here silently broke every numeric-typed eval date
+			// coming back from the Sheets API.
+			const date = dateValue(fieldRawValue(row, terms));
+			return isTodayOrFuture(date);
+		};
+		// An employee whose Employment Status already reads "Regular" has already
+		// gone through regularization — they shouldn't count toward (or show up
+		// in) the Regularizations metric anymore, even if a date is on file.
+		const isAlreadyRegular = row => fieldValue(row, ['employment status', 'status']).toLowerCase() === 'regular';
+		const rowDateInRange = (row, terms, range) => {
+			const key = fieldName(row, terms);
+			if (!key) return null;
+			const date = dateValue(row[key]);
+			return date && date >= range.start && date < range.end ? date : null;
+		};
+		const chart = (target, values, color, sortByValue = true) => {
+			const entries = Object.entries(values);
+			if (sortByValue) entries.sort((a, b) => b[1] - a[1]);
+			if (!entries.length || !entries.some(entry => entry[1])) {
+				$(target).innerHTML = '<p class="report-note">No data available.</p>';
+				return;
+			}
+			const max = Math.max(...entries.map(entry => entry[1]));
+
+			// Gender charts only: consistent gender-specific colors.
+			// All non-gender charts keep their original single color.
+			const genderColor = label => {
+				const value = String(label || '').trim().toLowerCase();
+				if (value === 'female') return '#d17b00';   // Female - orange
+				if (value === 'male') return '#1769aa';     // Male - blue
+				return '#7b61a8';                            // Other / Unspecified - purple
+			};
+
+			const isGenderChart = target === 'genderChart' || target === 'summaryGenderChart';
+
+			$(target).innerHTML = entries.map(([label, count]) => {
+				const barColor = isGenderChart ? genderColor(label) : color;
+				return `
+				<div class="chart-row" data-chart="${target}" data-label="${esc(label)}" role="button" tabindex="0" aria-label="View records for ${esc(label)}">
+					<span>${esc(label)}</span>
+					<div class="bar-track"><div class="bar" style="width:${count / max * 100}%;background:${barColor}"></div></div>
+					<strong>${count}</strong>
+				</div>`;
+			}).join('');
+		};
+		const updateDepartmentPositionView = () => { const select = $('departmentPositionSelect'); const departments = [...document.querySelectorAll('#departmentChart .chart-row')].map(row => row.dataset.label); const current = select.value; select.replaceChildren(new Option(departments.length ? 'Select a department above' : 'No departments available', '')); select.disabled = !departments.length; if (!departments.length) { $('departmentPositionChart').innerHTML = '<p class="report-note">No departments available for this week.</p>'; return; } const selectedDepartment = departments.includes(current) ? current : ''; departments.forEach(department => select.append(new Option(department, department))); select.value = selectedDepartment; if (!selectedDepartment) { $('departmentPositionChart').innerHTML = '<p class="report-note">Select a department to view its job positions.</p>'; return; } const range = currentReportRange(); const positions = {}; rows.forEach(row => { const department = fieldValue(row, ['new division', 'department', 'division']); const hired = rowDateInRange(row, ['hiring date', 'hire date'], range); if (hired && department === selectedDepartment) { const position = fieldValue(row, ['new designation/position', 'designation', 'position', 'job title', 'job']) || 'Unassigned'; positions[position] = (positions[position] || 0) + 1; } }); chart('departmentPositionChart', positions, '#4f7cac'); };
+		// Second dropdown in the Summary tab. In Department mode it lists job
+		// positions under the chosen department; in Division mode it lists the
+		// departments under the chosen division.
+		const updateSummaryPositionView = () => {
+			const divisionMode = summaryGroupMode() === 'division';
+			const parent = divisionMode ? 'division' : 'department';
+			const child = divisionMode ? 'departments' : 'job positions';
+			$('summaryPositionLabel').textContent = `${divisionMode ? 'Departments' : 'Job positions'} in selected ${parent}`;
+			const select = $('summaryDepartmentPositionSelect');
+			const groups = [...document.querySelectorAll('#summaryDepartmentChart .chart-row')].map(row => row.dataset.label);
+			const current = select.value;
+			select.replaceChildren(new Option(groups.length ? `Select a ${parent} above` : `No ${parent}s available`, ''));
+			select.disabled = !groups.length;
+			if (!groups.length) { $('summaryPositionChart').innerHTML = `<p class="report-note">No ${parent}s available.</p>`; return; }
+			const selected = groups.includes(current) ? current : '';
+			groups.forEach(group => select.append(new Option(group, group)));
+			select.value = selected;
+			if (!selected) { $('summaryPositionChart').innerHTML = `<p class="report-note">Select a ${parent} to view its ${child}.</p>`; return; }
+			const terms = summarySubTerms();
+			const counts = {};
+			rows.filter(hasData).forEach(row => {
+				if (summaryGroup(row) !== selected) return;
+				const sub = fieldValue(row, terms) || 'Unassigned';
+				counts[sub] = (counts[sub] || 0) + 1;
+			});
+			chart('summaryPositionChart', counts, '#4f7cac');
+		};
+			const monthRange = value => {
+			const match = /^(\d{4})-(\d{2})$/.exec(value || '');
+			if (!match) return null;
+			const year = Number(match[1]), month = Number(match[2]);
+			const start = new Date(Date.UTC(year, month - 1, 1));
+			const end = new Date(Date.UTC(year, month, 1));
+			return { start, end };
+		};
+		const currentReportRange = () => {
+			if ($('reportPeriod').value === 'month') {
+				return monthRange($('reportMonth').value) || monthRange(new Date().toISOString().slice(0, 7));
+			}
+			return weekRange($('reportWeek').value) || weekRange(isoWeekValue(new Date()));
+		};
+		const currentReportLabel = () => {
+			const range = currentReportRange();
+			if (!range) return '';
+			if ($('reportPeriod').value === 'month') {
+				return range.start.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+			}
+			return `Week of ${range.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}`;
+		};
+		const updateGenderDepartmentChart = range => {
+			const totals = {};
+			rows.forEach(row => {
+				if (!rowDateInRange(row, ['hiring date', 'hire date'], range)) return;
+				const department = fieldValue(row, ['new division', 'department', 'division']) || 'Unassigned';
+				const genderRaw = fieldValue(row, ['gender', 'sex']).toLowerCase();
+				const gender = genderRaw === 'male' ? 'male' : genderRaw === 'female' ? 'female' : 'other';
+				if (!totals[department]) totals[department] = { male: 0, female: 0, other: 0 };
+				totals[department][gender]++;
+			});
+			const entries = Object.entries(totals).sort((a, b) => {
+				const totalA = a[1].male + a[1].female + a[1].other;
+				const totalB = b[1].male + b[1].female + b[1].other;
+				return totalB - totalA || a[0].localeCompare(b[0]);
+			});
+			const target = $('genderDepartmentChart');
+			if (!entries.length) {
+				target.innerHTML = '<p class="report-note">No employee data available for the selected period.</p>';
+				return;
+			}
+			target.innerHTML = entries.map(([department, counts]) => {
+				const total = counts.male + counts.female + counts.other;
+				const maxTotal = Math.max(...entries.map(e => e[1].male + e[1].female + e[1].other));
+				const malePct = total ? (counts.male / total) * 100 : 0;
+				const femalePct = total ? (counts.female / total) * 100 : 0;
+				const otherPct = total ? (counts.other / total) * 100 : 0;
+				const widthPct = maxTotal ? Math.max(3, (total / maxTotal) * 100) : 0;
+				return `<div class="gender-department-row" data-chart="genderDepartmentChart" data-label="${esc(department)}" role="button" tabindex="0" aria-label="View records for ${esc(department)}">
+					<span>${esc(department)}</span>
+					<span class="gender-pair"><span class="gender-dot"></span> Male: <strong>${counts.male}</strong></span>
+					<span class="gender-pair"><span class="gender-dot female"></span> Female: <strong>${counts.female}</strong></span>
+					<div class="total-bar" style="width:${widthPct}%">
+						<span class="male-bar" style="width:${malePct}%"></span>
+						<span class="female-bar" style="width:${femalePct}%"></span>
+						<span class="other-bar" style="width:${otherPct}%"></span>
+					</div>
+				</div>`;
+			}).join('');
+		};
+				const recordsForChart = (target, label) => {
+				if (target === 'summaryDepartmentChart') return rows.filter(hasData).filter(row => summaryGroup(row) === label);
+				if (target === 'summaryPositionChart') { const group = $('summaryDepartmentPositionSelect').value; const terms = summarySubTerms(); return rows.filter(hasData).filter(row => summaryGroup(row) === group && (fieldValue(row, terms) || 'Unassigned') === label); }
+				if (target.startsWith('summary')) {
+					const terms = target.includes('Department') ? ['new division', 'department', 'division'] : target.includes('Position') ? ['new designation/position', 'designation', 'position', 'job title', 'job'] : target.includes('Status') ? ['employment status', 'status'] : ['gender', 'sex'];
+					return rows.filter(hasData).filter(row => (fieldValue(row, terms) || (terms[0].includes('department') ? 'Unassigned' : 'Unspecified')) === label);
+				}
+				const range = currentReportRange();
+				if (target === 'trendChart') {
+					if ($('reportPeriod').value === 'month') {
+						const m = /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (\d{4})$/.exec(label);
+						if (!m) return [];
+						const monthIndex = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].indexOf(m[1]);
+						const trendRange = { start: new Date(Date.UTC(Number(m[2]), monthIndex, 1)), end: new Date(Date.UTC(Number(m[2]), monthIndex + 1, 1)) };
+						return rows.filter(row => rowDateInRange(row, ['hiring date', 'hire date'], trendRange));
+					}
+					const trendRange = weekRange(label);
+					return trendRange ? rows.filter(row => rowDateInRange(row, ['hiring date', 'hire date'], trendRange)) : [];
+				}
+				if (target === 'departmentPositionChart') { const department = $('departmentPositionSelect').value; const terms = ['new designation/position', 'designation', 'position', 'job title', 'job']; return rows.filter(row => rowDateInRange(row, ['hiring date', 'hire date'], range) && fieldValue(row, ['new division', 'department', 'division']) === department && (fieldValue(row, terms) || 'Unassigned') === label); }
+				if (target === 'genderDepartmentChart') { return rows.filter(row => rowDateInRange(row, ['hiring date', 'hire date'], range) && (fieldValue(row, ['new division', 'department', 'division']) || 'Unassigned') === label); }
+				// Everything below is scoped by Hiring Date only, matching updateReports():
+				// an employee only counts toward the selected week if THEY were hired
+				// that week — 1st/2nd Eval and Regularization are checked for presence,
+				// never used to pull in a row from a different week.
+				const hiredThisWeek = row => rowDateInRange(row, ['hiring date', 'hire date'], range);
+				if (target === 'eventChart') {
+					if (label === 'Hires') return rows.filter(hiredThisWeek);
+					if (label === 'Evaluations') return rows.filter(row => hiredThisWeek(row) && (isUpcomingEval(row, ['date of 1st eval', '1st eval']) || isUpcomingEval(row, ['date of 2nd eval', '2nd eval'])));
+					if (label === 'Regularizations') return rows.filter(row => hiredThisWeek(row) && fieldValue(row, ['date of regularization', 'regularization']) && !isAlreadyRegular(row));
+					return [];
+				}
+				if (target === 'dayChart') { return rows.filter(row => { const date = hiredThisWeek(row); return date && date.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' }) === label; }); }
+				const terms = target === 'departmentChart' ? ['new division', 'department', 'division'] : target === 'statusChart' ? ['employment status', 'status'] : ['gender', 'sex'];
+				return rows.filter(row => hiredThisWeek(row) && (fieldValue(row, terms) || (target === 'departmentChart' ? 'Unassigned' : 'Unspecified')) === label);
+			};
+			let recordsDialogRows = [];
+		const renderRecordsDialog = () => {
+			const department = $('recordsDepartmentFilter').value;
+			const gender = $('recordsGenderFilter').value;
+			const filtered = recordsDialogRows.filter(row =>
+				(!department || tableFilterValue(rowDepartment(row)) === tableFilterValue(department)) &&
+				(!gender || tableFilterValue(rowGender(row)) === tableFilterValue(gender))
+			);
+			$('recordsCount').textContent = `${filtered.length} matching record${filtered.length === 1 ? '' : 's'}`;
+			$('recordsBody').innerHTML = filtered.length
+				? filtered.map(row => `<tr>${columns.map(column => `<td>${esc(formatCell(row[column], column))}</td>`).join('')}</tr>`).join('')
+				: `<tr><td class="empty" colspan="${columns.length || 1}">No records match the selected filters.</td></tr>`;
+		};
+		const refreshRecordsFilters = () => {
+			const departments = [...new Set(recordsDialogRows.map(rowDepartment))].sort((a,b) => a.localeCompare(b));
+			const genders = [...new Set(recordsDialogRows.map(rowGender))].sort((a,b) => a.localeCompare(b));
+			$('recordsDepartmentFilter').innerHTML = '<option value="">All Departments</option>' +
+				departments.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+			$('recordsGenderFilter').innerHTML = '<option value="">All Genders</option>' +
+				genders.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+		};
+		const openRecordsDialog = (title, matches) => {
+			const seen = new Set();
+			recordsDialogRows = matches.filter(row => {
+				const key = JSON.stringify(columns.map(column => cellKey(row[column])));
+				if (seen.has(key)) return false;
+				seen.add(key);
+				return true;
+			});
+			$('recordsTitle').textContent = title;
+			$('recordsHead').innerHTML = `<tr>${columns.map(column => `<th>${esc(column)}</th>`).join('')}</tr>`;
+			refreshRecordsFilters();
+			$('recordsDepartmentFilter').value = '';
+			$('recordsGenderFilter').value = '';
+			renderRecordsDialog();
+			$('recordsDialog').showModal();
+		};
+			const showRecords = (target, label) => openRecordsDialog(label, recordsForChart(target, label));
+			// Lets the four report metric cards and the two summary metric cards be
+			// clicked to see exactly which employees make up that number — using the
+			// same Hiring-Date-only, upcoming-eval-only, not-already-regular rules
+			// the numbers themselves are computed with.
+			const showMetricRecords = key => {
+				const range = currentReportRange();
+				const hiredThisWeek = row => rowDateInRange(row, ['hiring date', 'hire date'], range);
+				if (key === 'activity') { openRecordsDialog($('reportPeriod').value === 'month' ? 'Monthly activity' : 'Weekly activity', rows.filter(hiredThisWeek)); return; }
+				if (key === 'hires') { openRecordsDialog('New hires', rows.filter(hiredThisWeek)); return; }
+				if (key === 'evaluations') { openRecordsDialog('Evaluations', rows.filter(row => hiredThisWeek(row) && (isUpcomingEval(row, ['date of 1st eval', '1st eval']) || isUpcomingEval(row, ['date of 2nd eval', '2nd eval'])))); return; }
+				if (key === 'regularizations') { openRecordsDialog('Regularizations', rows.filter(row => hiredThisWeek(row) && fieldValue(row, ['date of regularization', 'regularization']) && !isAlreadyRegular(row))); return; }
+				if (key === 'summaryTotal') { openRecordsDialog('All records', rows.filter(hasData)); return; }
+				if (key === 'summaryComplete') { openRecordsDialog('Complete records', rows.filter(hasData).filter(row => columns.length && columns.every(column => String(row[column] ?? '').trim() !== ''))); return; }
+				if (key === 'summaryFields') {
+					// Not a set of employee rows — this metric is a column count, so
+					// show the tracked field names themselves instead of records.
+					$('recordsTitle').textContent = 'Fields tracked';
+					$('recordsCount').textContent = `${columns.length} field${columns.length === 1 ? '' : 's'}`;
+					$('recordsHead').innerHTML = '<tr><th>Field</th></tr>';
+					$('recordsBody').innerHTML = columns.length ? columns.map(column => `<tr><td>${esc(column)}</td></tr>`).join('') : '<tr><td class="empty" colspan="1">No fields loaded.</td></tr>';
+					$('recordsDialog').showModal();
+					return;
+				}
+			};
+		const countValues = (terms, fallback, source = rows) => source.reduce((counts, row) => { const value = fieldValue(row, terms) || fallback; counts[value] = (counts[value] || 0) + 1; return counts; }, {});
+		const updateSummary = () => {
+			const summaryRows = rows.filter(hasData);
+			const divisionMissing = summaryGroupMode() === 'division' && !hasDivisionColumn();
+			const departments = divisionMissing ? {} : summaryRows.reduce((counts, row) => { const v = summaryGroup(row); counts[v] = (counts[v] || 0) + 1; return counts; }, {});
+			const statuses = countValues(['employment status', 'status'], 'Unspecified', summaryRows);
+			const genders = countValues(['gender', 'sex'], 'Unspecified', summaryRows);
+			const complete = summaryRows.filter(row => columns.length && columns.every(column => String(row[column] ?? '').trim() !== '')).length;
+			$('summaryTotal').textContent = summaryRows.length;
+			$('summaryComplete').textContent = complete;
+			$('summaryFields').textContent = columns.length;
+			const groupLabel = summaryGroupMode() === 'division' ? 'division' : 'department';
+			$('summaryGroupTitle').textContent = `All records by ${groupLabel}`;
+			$('summaryPositionLabel').textContent = `${groupLabel === 'division' ? 'Departments' : 'Job positions'} in selected ${groupLabel}`;
+			if (divisionMissing) {
+				$('summaryDepartmentChart').innerHTML = '<p class="report-note">No separate "DIVISION" column was found in this sheet.</p>';
+			} else {
+				chart('summaryDepartmentChart', departments, '#1769aa');
+			}
+			chart('summaryStatusChart', statuses, '#2e8b57');
+			chart('summaryGenderChart', genders, '#d17b00');
+			updateSummaryPositionView();
+		};
+		const updateReports = () => {
+			const range = currentReportRange();
+			const monthly = $('reportPeriod').value === 'month';
+			const departments = {}, statuses = {}, genders = {};
+			const days = { Monday: 0, Tuesday: 0, Wednesday: 0, Thursday: 0, Friday: 0, Saturday: 0, Sunday: 0 };
+			const events = { Hires: 0, Evaluations: 0, Regularizations: 0 };
+			let hires = 0, evaluations = 0, regularizations = 0;
+
+			rows.forEach(row => {
+				const hiredDate = rowDateInRange(row, ['hiring date', 'hire date'], range);
+				if (!hiredDate) return;
+				hires++;
+				days[hiredDate.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })]++;
+				const department = fieldValue(row, ['new division', 'department', 'division']) || 'Unassigned';
+				const status = fieldValue(row, ['employment status', 'status']) || 'Unspecified';
+				const gender = fieldValue(row, ['gender', 'sex']) || 'Unspecified';
+				departments[department] = (departments[department] || 0) + 1;
+				statuses[status] = (statuses[status] || 0) + 1;
+				genders[gender] = (genders[gender] || 0) + 1;
+
+				if (isUpcomingEval(row, ['date of 1st eval', '1st eval'])) evaluations++;
+				if (isUpcomingEval(row, ['date of 2nd eval', '2nd eval'])) evaluations++;
+				if (fieldValue(row, ['date of regularization', 'regularization']) && !isAlreadyRegular(row)) regularizations++;
+			});
+
+			events.Hires = hires;
+			events.Evaluations = evaluations;
+			events.Regularizations = regularizations;
+
+			$('reportActivity').textContent = hires;
+			$('reportHires').textContent = hires;
+			$('reportEvaluations').textContent = evaluations;
+			$('reportRegularizations').textContent = regularizations;
+
+			$('reportView').querySelector('[data-metric="activity"] h3').textContent = monthly ? 'Monthly activity' : 'Weekly activity';
+			$('reportView').querySelector('[data-metric="hires"] h3').textContent = monthly ? 'New hires this month' : 'New hires';
+			$('reportView').querySelector('[data-metric="evaluations"] h3').textContent = monthly ? 'Evaluations this month' : 'Evaluations';
+			$('reportView').querySelector('[data-metric="regularizations"] h3').textContent = monthly ? 'Regularizations this month' : 'Regularizations';
+			$('reportView').querySelector('[data-metric="activity"] .metric-label').textContent = monthly ? 'employee events in selected month' : 'employee events in selected week';
+			$('reportView').querySelector('[data-metric="hires"] .metric-label').textContent = monthly ? 'hiring dates in selected month' : 'hiring dates in selected week';
+			$('reportView').querySelector('[data-metric="evaluations"] .metric-label').textContent = monthly ? '1st and 2nd evaluations due' : '1st and 2nd evaluations due';
+			$('reportView').querySelector('[data-metric="regularizations"] .metric-label').textContent = monthly ? 'regularization dates among selected-month hires' : 'regularization dates among selected-week hires';
+
+			$('reportView').querySelector('#departmentChart').previousElementSibling.textContent = monthly ? 'Monthly hires by department' : 'Weekly hires by department';
+			$('statusChart').previousElementSibling.textContent = monthly ? 'Monthly hires by status' : 'Weekly hires by status';
+			$('genderChartTitle').textContent = monthly ? 'Monthly hires by gender' : 'Weekly hires by gender';
+			$('genderDepartmentTitle').textContent = monthly ? 'Gender by department — selected month' : 'Gender by department — selected week';
+			$('dayChart').previousElementSibling.textContent = monthly ? 'Hiring activity by day' : 'Activity by day';
+
+			chart('departmentChart', departments, '#1769aa');
+			chart('statusChart', statuses, '#2e8b57');
+			chart('genderChart', genders, '#d17b00');
+			chart('dayChart', days, '#7b61a8', false);
+			chart('eventChart', events, '#c75c2c');
+
+			updateGenderDepartmentChart(range);
+
+			const trend = {};
+			if (monthly) {
+				const selected = new Date(range.start);
+				selected.setUTCMonth(selected.getUTCMonth() - 7);
+				for (let i = 0; i < 8; i++) {
+					const monthStart = new Date(Date.UTC(selected.getUTCFullYear(), selected.getUTCMonth() + i, 1));
+					const monthEnd = new Date(Date.UTC(monthStart.getUTCFullYear(), monthStart.getUTCMonth() + 1, 1));
+					const label = monthStart.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+					trend[label] = rows.filter(row => rowDateInRange(row, ['hiring date', 'hire date'], { start: monthStart, end: monthEnd })).length;
+				}
+			} else {
+				const trendRange = new Date(range.start);
+				trendRange.setUTCDate(trendRange.getUTCDate() - 49);
+				for (let week = 0; week < 8; week++) {
+					const weekStart = new Date(trendRange);
+					weekStart.setUTCDate(trendRange.getUTCDate() + week * 7);
+					const weekEnd = new Date(weekStart);
+					weekEnd.setUTCDate(weekStart.getUTCDate() + 7);
+					const label = isoWeekValue(weekStart);
+					trend[label] = rows.filter(row => rowDateInRange(row, ['hiring date', 'hire date'], { start: weekStart, end: weekEnd })).length;
+				}
+			}
+			chart('trendChart', trend, '#1769aa', false);
+			$('trendChart').previousElementSibling.textContent = monthly ? '8-month hiring trend' : 'Hiring trend';
+		};
+
+		const cleanColumns = headers => { const used = new Set(); return headers.map((header, index) => { const base = String(header ?? '').trim() || `Column ${index + 1}`; let name = base, suffix = 2; while (used.has(name)) name = `${base} (${suffix++})`; used.add(name); return name; }); };
+		const matchHeaderColumns = headerRow => { const claimed = new Set(); const cells = headerRow.map((header, index) => ({ header, index, standard: null })); const isOldEmpId = header => /^old\s+emp\s*#?$/i.test(String(header ?? '').trim()); cells.forEach(cell => { if (String(cell.header ?? '').trim() === '' || isOldEmpId(cell.header)) return; const match = defaultColumns.find(column => !claimed.has(column) && normalizeHeader(column) === normalizeHeader(cell.header)); if (match) { cell.standard = match; claimed.add(match); } }); cells.forEach(cell => { if (cell.standard || String(cell.header ?? '').trim() === '' || isOldEmpId(cell.header)) return; const normalizedHeader = normalizeHeader(cell.header); const candidates = defaultColumns.filter(column => !claimed.has(column) && (normalizedHeader.includes(normalizeHeader(column)) || normalizeHeader(column).includes(normalizedHeader))); if (candidates.length === 1) { cell.standard = candidates[0]; claimed.add(candidates[0]); } }); return cells.filter(cell => cell.standard); };
+		// Shared by the file-picker import and the Google Sheets API import below.
+		// The source sheet can contain title rows, summary cells, repeated labels, or
+		// stray cells such as "PHILHEALTH NO." before the actual employee table.
+		// Never use the first partial header match. Instead, score every row and use
+		// the strongest employee-table header candidate.
+		const rowsFromMatrix = matrix => {
+			if (!Array.isArray(matrix) || !matrix.length) {
+				return { columns: [], rows: [] };
+			}
+
+			const headerCandidates = matrix.map((row, index) => {
+				const matches = matchHeaderColumns(Array.isArray(row) ? row : []);
+				const exactCount = matches.reduce((count, match) => {
+					const original = String(row[match.index] ?? '').trim();
+					return count + (normalizeHeader(original) === normalizeHeader(match.standard) ? 1 : 0);
+				}, 0);
+				const recognized = matches.length;
+				const anchorNames = new Set(['STATUS', 'NEW EMP', 'FULL NAME (Surname, First, Middle)', 'NEW DESIGNATION/POSITION', 'NEW DIVISION/DEPARTMENT', 'HIRING DATE', 'GENDER', 'EMPLOYMENT STATUS', 'PHILHEALTH NO.']);
+				const anchorCount = matches.filter(match => anchorNames.has(match.standard)).length;
+				return { index, row, matches, exactCount, recognized, anchorCount };
+		}).filter(candidate => candidate.recognized > 0);
+
+		if (!headerCandidates.length) {
+			return { columns: [], rows: [] };
+		}
+
+		headerCandidates.sort((a, b) =>
+			b.recognized - a.recognized ||
+			b.exactCount - a.exactCount ||
+			b.anchorCount - a.anchorCount ||
+			a.index - b.index
+		);
+
+		const headerCandidate = headerCandidates[0];
+		const headerIndex = headerCandidate.index;
+		const headerCells = headerCandidate.matches;
+
+		// A real employee header should contain several recognized fields. This
+		// guards against a single stray cell such as "PHILHEALTH NO." being treated
+		// as the entire table header.
+		if (headerCells.length < 3) {
+			return { columns: [], rows: [] };
+		}
+
+		const importedColumns = cleanColumns(
+			headerCells.map(item => item.standard)
+		);
+
+		const isHeaderLikeDataRow = row => {
+			const nonEmpty = (Array.isArray(row) ? row : []).filter(value => String(value ?? '').trim() !== '');
+			if (!nonEmpty.length) return true;
+			const recognized = matchHeaderColumns(row).length;
+			if (recognized >= Math.min(3, headerCells.length)) return true;
+			// Also remove a one-cell repeated label such as "PHILHEALTH NO.".
+			if (nonEmpty.length === 1) {
+				const only = normalizeHeader(nonEmpty[0]);
+				return defaultColumns.some(column => normalizeHeader(column) === only);
+			}
+			return false;
+		};
+
+		const seen = new Set();
+		const importedRows = matrix
+			.slice(headerIndex + 1)
+			.filter(row => !isHeaderLikeDataRow(row))
+			.map(row => Object.fromEntries(
+				importedColumns.map((column, index) => [
+					column,
+					Array.isArray(row) ? (row[headerCells[index].index] ?? '') : ''
+				])
+			))
+			.filter(row => {
+				if (!Object.values(row).some(value => String(value ?? '').trim() !== '')) return false;
+				const key = JSON.stringify(importedColumns.map(column => cellKey(row[column])));
+				if (seen.has(key)) return false;
+				seen.add(key);
+				return true;
+			});
+
+		return { columns: importedColumns, rows: importedRows };
+		};
+		$('reportWeek').value = isoWeekValue(new Date());
+		$('reportMonth').value = new Date().toISOString().slice(0, 7);
+		$('reportPeriod').onchange = () => {
+			const monthly = $('reportPeriod').value === 'month';
+			$('weekControl').hidden = monthly;
+			$('monthControl').hidden = !monthly;
+			draw();
+		};
+		$('reportWeek').onchange = draw;
+		$('reportMonth').onchange = draw;
+		$('printReport').onclick = () => window.print();
+		const openChartRecord = event => {
+			const metricEl = event.target.closest('[data-metric]');
+			if (metricEl) { showMetricRecords(metricEl.dataset.metric); return; }
+			const row = event.target.closest('.chart-row, .gender-department-row'); if (!row) return; showRecords(row.dataset.chart, row.dataset.label);
+		};
+		$('reportView').onclick = openChartRecord; $('summaryView').onclick = openChartRecord;
+		document.addEventListener('keydown', event => {
+			if (event.key !== 'Enter' && event.key !== ' ') return;
+			if (event.target.dataset.metric) { event.preventDefault(); showMetricRecords(event.target.dataset.metric); return; }
+			if (!event.target.classList.contains('chart-row') && !event.target.classList.contains('gender-department-row')) return;
+			event.preventDefault();
+			showRecords(event.target.dataset.chart, event.target.dataset.label);
+		});
+		$('closeRecords').onclick = () => $('recordsDialog').close();
+		$('recordsDepartmentFilter').onchange = renderRecordsDialog;
+		$('recordsGenderFilter').onchange = renderRecordsDialog;
+		$('clearRecordsFilters').onclick = () => {
+			$('recordsDepartmentFilter').value = '';
+			$('recordsGenderFilter').value = '';
+			renderRecordsDialog();
+		};
+		$('employeeSource').value = currentSheetName;
+
+		// ---- Load from Google Sheet (via Sheets API v4), with optional auto-refresh polling ----
+		const AUTO_REFRESH_MS = 60000; // how often to poll while auto-refresh is on
+		let autoRefreshTimer = null;
+
+		const loadFromSheet = async ({ silent = false } = {}) => {
+			const button = $('loadSheet');
+			const originalLabel = button.textContent;
+			if (!silent) { button.disabled = true; button.textContent = 'Loading…'; }
+			try {
+				// A cache-busting query param forces a fresh request through the browser's
+				// own cache. The Sheets API itself always reads the live sheet — there's
+				// no publish-to-web style server-side cache to fight here.
+				const response = await fetch(`${SHEETS_API_URL()}&_=${Date.now()}`, { cache: 'no-store' });
+				if (!response.ok) {
+					const body = await response.json().catch(() => null);
+					if (response.status === 401 || response.status === 403) {
+						throw new Error('Google denied access to this sheet. Set the spreadsheet sharing to "Anyone with the link" as Viewer, and confirm the Sheets API is enabled for this API key.');
+					}
+					throw new Error(body?.error?.message || `Sheets API request failed (HTTP ${response.status})`);
+				}
+				const json = await response.json();
+				const matrix = json.values || [];
+				const parsed = rowsFromMatrix(matrix);
+				if (!parsed.columns.length) throw new Error('No matching columns found in the sheet. Check the header row.');
+				columns = parsed.columns;
+				rows = parsed.rows;
+				refreshMainFilters();
+				sort = { key: '', dir: 1 };
+				const timeLabel = new Date().toLocaleTimeString();
+				$('syncNote').textContent = autoRefreshTimer
+					? `Loaded ${rows.length} row${rows.length === 1 ? '' : 's'} from ${currentSheetName} at ${timeLabel}. Auto-refreshing every ${AUTO_REFRESH_MS / 1000}s.`
+					: `Loaded ${rows.length} row${rows.length === 1 ? '' : 's'} from ${currentSheetName} at ${timeLabel}.`;
+				draw();
+				return true;
+			} catch (error) {
+				if (silent) {
+					// Don't interrupt with an alert on background polls — just surface it quietly
+					// and keep whatever data is already on screen.
+					$('syncNote').textContent = `Auto-refresh failed at ${new Date().toLocaleTimeString()}: ${error.message}`;
+				} else {
+					alert(`Could not load the Google Sheet: ${error.message}`);
+				}
+				return false;
+			} finally {
+				if (!silent) { button.disabled = false; button.textContent = originalLabel; }
+			}
+		};
+
+		$('loadSheet').onclick = () => loadFromSheet();
+
+		$('autoRefreshToggle').onclick = () => {
+			const toggle = $('autoRefreshToggle');
+			if (autoRefreshTimer) {
+				clearInterval(autoRefreshTimer);
+				autoRefreshTimer = null;
+				toggle.textContent = '▶️ Start auto-refresh';
+				$('syncNote').textContent = 'Auto-refresh stopped.';
+				return;
+			}
+			toggle.textContent = '⏸️ Stop auto-refresh';
+			autoRefreshTimer = setInterval(() => loadFromSheet({ silent: true }), AUTO_REFRESH_MS);
+			loadFromSheet(); // refresh immediately when turning it on, not just after the first interval
+		};
+
+		// Stop polling if the page is closed/navigated away, so we don't leak timers.
+		window.addEventListener('beforeunload', () => { if (autoRefreshTimer) clearInterval(autoRefreshTimer); });
+
+		$('search').oninput = draw;
+		$('departmentFilter').onchange = draw;
+		$('genderFilter').onchange = draw;
+		$('clearTableFilters').onclick = () => {
+			$('search').value = '';
+			$('departmentFilter').value = '';
+			$('genderFilter').value = '';
+			draw();
+		}; $('head').onclick = e => { const th = e.target.closest('th'); if (!th) return; sort.dir = sort.key === th.dataset.key ? -sort.dir : 1; sort.key = th.dataset.key; draw(); };
+		$('body').onclick = e => { const edit = e.target.dataset.edit, del = e.target.dataset.delete; if (edit !== undefined) openForm(+edit); if (del !== undefined && confirm('Delete this employee?')) { rows.splice(+del, 1); draw(); } };
+		document.querySelector('.tabs').onclick = e => {
+			const tab = e.target.closest('[data-tab]');
+			if (!tab) return;
+			document.querySelectorAll('[data-tab]').forEach(button => button.classList.toggle('active', button === tab));
+			if (tab.dataset.tab === 'dataView') {
+				document.querySelectorAll('.data-view').forEach(view => view.hidden = false);
+				document.querySelector('#reportView').hidden = true;
+				document.querySelector('#summaryView').hidden = true;
+				return;
+			}
+			document.querySelectorAll('.data-view, #reportView, #summaryView').forEach(view => { view.hidden = view.id !== tab.dataset.tab; });
+		};
+
+		$('employeeSource').onchange = () => {
+			currentSheetName = $('employeeSource').value;
+			document.querySelector('[data-tab="dataView"]').classList.add('active');
+			document.querySelectorAll('[data-tab]:not([data-tab="dataView"])').forEach(button => button.classList.remove('active'));
+			document.querySelectorAll('.data-view').forEach(view => view.hidden = false);
+			document.querySelector('#reportView').hidden = true;
+			document.querySelector('#summaryView').hidden = true;
+			loadFromSheet();
+		};
+		$('departmentPositionSelect').onchange = updateDepartmentPositionView;
+		$('summaryDepartmentPositionSelect').onchange = updateSummaryPositionView;
+		$('summaryGroupBy').onchange = () => { $('summaryDepartmentPositionSelect').value = ''; updateSummary(); };
+		const orderFieldsForForm = cols => { const departmentIndex = cols.findIndex(isDepartmentField); const positionIndex = cols.findIndex(isPositionField); if (departmentIndex === -1 || positionIndex === -1 || departmentIndex < positionIndex) return cols; const reordered = cols.filter((_, i) => i !== departmentIndex); const newPositionIndex = reordered.findIndex(isPositionField); reordered.splice(newPositionIndex, 0, cols[departmentIndex]); return reordered; };
+		function openForm(index) { editing = index; const cols = columns.length ? columns : defaultColumns; columns = cols; const formCols = orderFieldsForForm(cols); const departmentColumn = cols.find(isDepartmentField); const initialDepartment = !departmentColumn ? '' : formatCell(rows[index]?.[departmentColumn], departmentColumn); const fields = $('fields'); fields.replaceChildren(...formCols.map(c => { const label = document.createElement('label'); label.dataset.field = c; label.textContent = c; const initialValue = formatCell(rows[index]?.[c], c); const context = isPositionField(c) ? { department: initialDepartment } : {}; label.append(createFieldControl(c, initialValue, context)); return label; })); const departmentLabel = [...fields.children].find(label => isDepartmentField(label.dataset.field)); departmentLabel?.querySelector('input, select')?.addEventListener('change', refreshPositionOptions); $('editor').showModal(); }
+		$('cancel').onclick = () => $('editor').close();
+		$('form').onsubmit = e => {
+			e.preventDefault();
+			const item = Object.fromEntries(new FormData(e.target));
+			if (rows[editing]) rows[editing] = item;
+			$('editor').close();
+			draw();
+		};
+		$('clear').onclick = () => { if (rows.length && confirm(`Clear the currently loaded ${currentSheetName} data?`)) { rows = []; columns = []; $('syncNote').textContent = ''; draw(); } }; draw(); loadFromSheet();
+	</script>
+</body>
+</html>
