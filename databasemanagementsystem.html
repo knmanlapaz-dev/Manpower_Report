@@ -358,7 +358,9 @@
 
 		const defaultColumns = ['STATUS','NEW EMP','FULL NAME (Surname, First, Middle)','NEW DESIGNATION/POSITION','NEW DIVISION/DEPARTMENT','CONTACT NO.','EMAIL ADDRESS','HIRING DATE','YEAR HIRED','GENDER','EMPLOYMENT STATUS','COMPLETE ADDRESS','TIN NO.','PHILHEALTH NO.','SSS NO.','PAG-IBIG NO.','DATE OF 1ST EVAL','DATE OF 2ND EVAL','DATE OF REGULARIZATION','DIVISION']; let rows = [], columns = [], editing = -1, sort = { key: '', dir: 1 };
 		const cellKey = value => value instanceof Date ? (Number.isNaN(value.getTime()) ? 'Invalid Date' : value.toISOString()) : String(value ?? '').trim();
-		const dedupeRows = sourceRows => { const seen = new Set(); return sourceRows.filter(row => { const key = JSON.stringify(columns.map(column => cellKey(row[column]))); if (seen.has(key)) return false; seen.add(key); return true; }); };
+		// Preserve every non-empty employee row from the source sheet. Do not silently
+		// deduplicate records: two legitimate employees can have identical field values.
+		const dedupeRows = sourceRows => sourceRows;
 		const hasData = row => columns.some(column => String(row[column] ?? '').trim() !== '');
 		const tableFilterValue = value => String(value ?? '').trim().toLowerCase();
 		const rowDepartment = row => fieldValue(row, ['new division', 'department', 'division']) || 'Unassigned';
@@ -382,7 +384,7 @@
 				(!gender || tableFilterValue(rowGender(row)) === tableFilterValue(gender));
 		};
 
-		const draw = () => { rows = dedupeRows(rows); const query = $('search').value.toLowerCase(); let view = rows.map((r, i) => ({ r, i }))
+		const draw = () => { const query = $('search').value.toLowerCase(); let view = rows.map((r, i) => ({ r, i }))
 				.filter(x => matchesMainFilters(x.r))
 				.filter(x => Object.values(x.r).join(' ').toLowerCase().includes(query));
 			if (sort.key) {
@@ -776,13 +778,8 @@
 				genders.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
 		};
 		const openRecordsDialog = (title, matches) => {
-			const seen = new Set();
-			recordsDialogRows = matches.filter(row => {
-				const key = JSON.stringify(columns.map(column => cellKey(row[column])));
-				if (seen.has(key)) return false;
-				seen.add(key);
-				return true;
-			});
+			// Keep repeated-looking rows visible in record details; the source rows are authoritative.
+			recordsDialogRows = matches.slice();
 			$('recordsTitle').textContent = title;
 			$('recordsHead').innerHTML = `<tr>${columns.map(column => `<th>${esc(column)}</th>`).join('')}</tr>`;
 			refreshRecordsFilters();
@@ -972,12 +969,30 @@
 			headerCells.map(item => item.standard)
 		);
 
+		const originalHeaderRow = Array.isArray(matrix[headerIndex]) ? matrix[headerIndex] : [];
 		const isHeaderLikeDataRow = row => {
-			const nonEmpty = (Array.isArray(row) ? row : []).filter(value => String(value ?? '').trim() !== '');
+			const cells = Array.isArray(row) ? row : [];
+			const nonEmpty = cells.filter(value => String(value ?? '').trim() !== '');
+			// Blank rows are not employee records.
 			if (!nonEmpty.length) return true;
-			const recognized = matchHeaderColumns(row).length;
-			if (recognized >= Math.min(3, headerCells.length)) return true;
-			// Also remove a one-cell repeated label such as "PHILHEALTH NO.".
+
+			// Only treat a row as a repeated header when the same source columns
+			// contain the same labels as the selected header row. Do not discard a
+			// legitimate employee just because three values happen to resemble labels.
+			let alignedHeaderMatches = 0;
+			let comparedHeaderCells = 0;
+			for (const match of headerCells) {
+				const expected = normalizeHeader(originalHeaderRow[match.index]);
+				if (!expected) continue;
+				comparedHeaderCells++;
+				if (normalizeHeader(cells[match.index]) === expected) alignedHeaderMatches++;
+			}
+			if (comparedHeaderCells >= 3 && alignedHeaderMatches >= Math.max(3, Math.ceil(comparedHeaderCells * 0.7))) {
+				return true;
+			}
+
+			// Exclude an isolated stray header label (e.g. PHILHEALTH NO.) but keep
+			// all other non-empty rows, including exact duplicate employee records.
 			if (nonEmpty.length === 1) {
 				const only = normalizeHeader(nonEmpty[0]);
 				return defaultColumns.some(column => normalizeHeader(column) === only);
@@ -985,7 +1000,6 @@
 			return false;
 		};
 
-		const seen = new Set();
 		const importedRows = matrix
 			.slice(headerIndex + 1)
 			.filter(row => !isHeaderLikeDataRow(row))
@@ -995,13 +1009,9 @@
 					Array.isArray(row) ? (row[headerCells[index].index] ?? '') : ''
 				])
 			))
-			.filter(row => {
-				if (!Object.values(row).some(value => String(value ?? '').trim() !== '')) return false;
-				const key = JSON.stringify(importedColumns.map(column => cellKey(row[column])));
-				if (seen.has(key)) return false;
-				seen.add(key);
-				return true;
-			});
+			// Ignore genuinely blank rows, but never remove a row just because its values
+			// match another employee record.
+			.filter(row => Object.values(row).some(value => String(value ?? '').trim() !== ''));
 
 		return { columns: importedColumns, rows: importedRows };
 		};
