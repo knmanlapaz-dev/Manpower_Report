@@ -258,7 +258,7 @@
 			<div class="employee-source-picker" title="Choose which employee database to display">
 				<label for="employeeSource">Employee Database</label>
 				<select id="employeeSource" aria-label="Choose employee database">
-					<option value="ACTIVE EMPLOYEES">Active Employees</option>
+					<option value="ACTIVE MASTERLIST">Active Employees</option>
 					<option value="1CURE EMPLOYEES">1Cure Employees</option>
 				</select>
 			</div>
@@ -353,17 +353,45 @@
 		// ---- Google Sheets API connection ----
 		const SHEETS_API_KEY = 'AIzaSyDJl8EhaIUTUJHrVvrkCUuDJx44grK0BJM';
 		const SPREADSHEET_ID = '1fTae243E9FuG51BSol52Pf8wQZ211jnieYX4M4l7PFU';
-		let currentSheetName = 'ACTIVE EMPLOYEES';
-		const SHEETS_API_URL = () => `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(currentSheetName)}?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER&key=${SHEETS_API_KEY}`;
+		let currentSheetName = 'ACTIVE MASTERLIST';
+		const SHEET_METADATA_URL = () => `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}?fields=sheets.properties(sheetId,title)&key=${SHEETS_API_KEY}`;
+		const normalizeSheetTitle = value => String(value ?? '').replace(/\u00A0/g, ' ').trim().toLocaleUpperCase();
+		const getActualSheetTitle = async () => {
+			const metadataResponse = await fetch(`${SHEET_METADATA_URL()}&_=${Date.now()}`, { cache: 'no-store' });
+			const metadata = await metadataResponse.json().catch(() => ({}));
+			if (!metadataResponse.ok) {
+				throw new Error(metadata?.error?.message || `Could not read spreadsheet tab names (HTTP ${metadataResponse.status}). Check that the Sheets API is enabled and the API key has access.`);
+			}
+			const sheets = (metadata.sheets || []).map(item => item.properties).filter(Boolean);
+			const wanted = normalizeSheetTitle(currentSheetName);
+			const match = sheets.find(item => normalizeSheetTitle(item.title) === wanted);
+			if (!match) {
+				const available = sheets.map(item => item.title).join(', ');
+				throw new Error(`The tab "${currentSheetName}" was not found. Actual tabs in this spreadsheet: ${available || '(none returned)'}. Update the dropdown value to match the tab name exactly.`);
+			}
+			return match.title;
+		};
+		const SHEETS_API_URL = actualTitle => {
+			const a1Range = "'" + String(actualTitle).replace(/'/g, "''") + "'!A1:AZ5000";
+			return `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(a1Range)}?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER&key=${SHEETS_API_KEY}`;
+		};
 
-		const defaultColumns = ['STATUS','NEW EMP','FULL NAME (Surname, First, Middle)','NEW DESIGNATION/POSITION','NEW DIVISION/DEPARTMENT','CONTACT NO.','EMAIL ADDRESS','HIRING DATE','YEAR HIRED','GENDER','EMPLOYMENT STATUS','COMPLETE ADDRESS','TIN NO.','PHILHEALTH NO.','SSS NO.','PAG-IBIG NO.','DATE OF 1ST EVAL','DATE OF 2ND EVAL','DATE OF REGULARIZATION','DIVISION']; let rows = [], columns = [], editing = -1, sort = { key: '', dir: 1 };
+		const defaultColumns = [
+			'STATUS', 'EMPLOYEE NUMBER', 'LAST NAME', 'FIRST NAME', 'MIDDLE NAME',
+			'POSITION', 'DEPARTMENT', 'DIVISION', 'BIRTHDAY (MM/DD/YYYY)',
+			'CONTACT NO.', 'EMAIL ADDRESS', 'HIRING DATE', 'YEAR HIRED', 'GENDER',
+			'EMPLOYMENT TYPE', 'COMPLETE ADDRESS', 'TIN NO.', 'PHILHEALTH NO.',
+			'SSS NO.', 'PAGIBIG NO.',
+			'DATE OF 1ST EVAL', 'DATE OF 2ND EVAL', 'DATE OF REGULARIZATION'
+		];
+		let rows = [], columns = [], editing = -1, sort = { key: '', dir: 1 };
 		const cellKey = value => value instanceof Date ? (Number.isNaN(value.getTime()) ? 'Invalid Date' : value.toISOString()) : String(value ?? '').trim();
 		// Preserve every non-empty employee row from the source sheet. Do not silently
 		// deduplicate records: two legitimate employees can have identical field values.
 		const dedupeRows = sourceRows => sourceRows;
 		const hasData = row => columns.some(column => String(row[column] ?? '').trim() !== '');
 		const tableFilterValue = value => String(value ?? '').trim().toLowerCase();
-		const rowDepartment = row => fieldValue(row, ['new division', 'department', 'division']) || 'Unassigned';
+		const rowDepartment = row => fieldValue(row, ['department', 'new division', 'division']) || 'Unassigned';
 		const rowGender = row => fieldValue(row, ['gender', 'sex']) || 'Unspecified';
 		const refreshMainFilters = () => {
 			const department = $('departmentFilter'), gender = $('genderFilter');
@@ -462,11 +490,10 @@
 			return key ? row[key] : undefined;
 		};
 		const isDateField = name => /birthday|hiring date|date of 1st eval|date of 2nd eval|date of regularization/i.test(name);
-		// The standalone "DIVISION" column (exactly that header) is separate from the
-		// combined "NEW DIVISION/DEPARTMENT" column, so it must not be treated as the
-		// department field in the edit form.
+		// The standalone DIVISION column is separate from DEPARTMENT and must not be
+		// treated as the department field in the edit form.
 		const isDivisionColumn = name => /^division$/i.test(String(name).trim());
-		const isDepartmentField = name => !isDivisionColumn(name) && /new division|department|division/i.test(name);
+		const isDepartmentField = name => !isDivisionColumn(name) && /department|new division/i.test(name);
 		const isPositionField = name => /new designation|designation|position|job title|job/i.test(name);
 		const isGenderField = name => /gender|sex/i.test(name);
 		// ---- Summary tab: group by department OR by division ----
@@ -475,15 +502,15 @@
 		const summaryGroupMode = () => $('summaryGroupBy').value;
 		const summaryGroup = row => summaryGroupMode() === 'division'
 			? (rowDivision(row) || 'Unassigned')
-			: (fieldValue(row, ['new division', 'department', 'division']) || 'Unassigned');
+			: (fieldValue(row, ['department', 'new division', 'division']) || 'Unassigned');
 		// What the second dropdown breaks each group into: departments under a
 		// division, or job positions under a department.
 		const summarySubTerms = () => summaryGroupMode() === 'division'
-			? ['new division', 'department', 'division']
-			: ['new designation/position', 'designation', 'position', 'job title', 'job'];
+			? ['department', 'new division', 'division']
+			: ['position', 'new designation/position', 'designation', 'job title', 'job'];
 		const uniqueValues = values => [...new Set(values.map(value => String(value ?? '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-		const departmentOptions = () => uniqueValues(rows.map(row => fieldValue(row, ['new division', 'department', 'division'])));
-		const positionOptions = department => department ? uniqueValues(rows.filter(row => fieldValue(row, ['new division', 'department', 'division']) === department).map(row => fieldValue(row, ['new designation/position', 'designation', 'position', 'job title', 'job']))) : [];
+		const departmentOptions = () => uniqueValues(rows.map(row => fieldValue(row, ['department', 'new division', 'division'])));
+		const positionOptions = department => department ? uniqueValues(rows.filter(row => fieldValue(row, ['department', 'new division', 'division']) === department).map(row => fieldValue(row, ['position', 'new designation/position', 'designation', 'job title', 'job']))) : [];
 		const genderOptions = () => uniqueValues(['Male', 'Female', ...rows.map(row => fieldValue(row, ['gender', 'sex']))]);
 		const createFieldControl = (name, value = '', context = {}) => {
 			const isPosition = isPositionField(name);
@@ -594,7 +621,7 @@
 		// An employee whose Employment Status already reads "Regular" has already
 		// gone through regularization — they shouldn't count toward (or show up
 		// in) the Regularizations metric anymore, even if a date is on file.
-		const isAlreadyRegular = row => fieldValue(row, ['employment status', 'status']).toLowerCase() === 'regular';
+		const isAlreadyRegular = row => fieldValue(row, ['employment type', 'employment status', 'status']).toLowerCase() === 'regular';
 		const rowDateInRange = (row, terms, range) => {
 			const key = fieldName(row, terms);
 			if (!key) return null;
@@ -631,7 +658,7 @@
 				</div>`;
 			}).join('');
 		};
-		const updateDepartmentPositionView = () => { const select = $('departmentPositionSelect'); const departments = [...document.querySelectorAll('#departmentChart .chart-row')].map(row => row.dataset.label); const current = select.value; select.replaceChildren(new Option(departments.length ? 'Select a department above' : 'No departments available', '')); select.disabled = !departments.length; if (!departments.length) { $('departmentPositionChart').innerHTML = '<p class="report-note">No departments available for this week.</p>'; return; } const selectedDepartment = departments.includes(current) ? current : ''; departments.forEach(department => select.append(new Option(department, department))); select.value = selectedDepartment; if (!selectedDepartment) { $('departmentPositionChart').innerHTML = '<p class="report-note">Select a department to view its job positions.</p>'; return; } const range = currentReportRange(); const positions = {}; rows.forEach(row => { const department = fieldValue(row, ['new division', 'department', 'division']); const hired = rowDateInRange(row, ['hiring date', 'hire date'], range); if (hired && department === selectedDepartment) { const position = fieldValue(row, ['new designation/position', 'designation', 'position', 'job title', 'job']) || 'Unassigned'; positions[position] = (positions[position] || 0) + 1; } }); chart('departmentPositionChart', positions, '#4f7cac'); };
+		const updateDepartmentPositionView = () => { const select = $('departmentPositionSelect'); const departments = [...document.querySelectorAll('#departmentChart .chart-row')].map(row => row.dataset.label); const current = select.value; select.replaceChildren(new Option(departments.length ? 'Select a department above' : 'No departments available', '')); select.disabled = !departments.length; if (!departments.length) { $('departmentPositionChart').innerHTML = '<p class="report-note">No departments available for this week.</p>'; return; } const selectedDepartment = departments.includes(current) ? current : ''; departments.forEach(department => select.append(new Option(department, department))); select.value = selectedDepartment; if (!selectedDepartment) { $('departmentPositionChart').innerHTML = '<p class="report-note">Select a department to view its job positions.</p>'; return; } const range = currentReportRange(); const positions = {}; rows.forEach(row => { const department = fieldValue(row, ['department', 'new division', 'division']); const hired = rowDateInRange(row, ['hiring date', 'hire date'], range); if (hired && department === selectedDepartment) { const position = fieldValue(row, ['position', 'new designation/position', 'designation', 'job title', 'job']) || 'Unassigned'; positions[position] = (positions[position] || 0) + 1; } }); chart('departmentPositionChart', positions, '#4f7cac'); };
 		// Second dropdown in the Summary tab. In Department mode it lists job
 		// positions under the chosen department; in Division mode it lists the
 		// departments under the chosen division.
@@ -685,7 +712,7 @@
 			const totals = {};
 			rows.forEach(row => {
 				if (!rowDateInRange(row, ['hiring date', 'hire date'], range)) return;
-				const department = fieldValue(row, ['new division', 'department', 'division']) || 'Unassigned';
+				const department = fieldValue(row, ['department', 'new division', 'division']) || 'Unassigned';
 				const genderRaw = fieldValue(row, ['gender', 'sex']).toLowerCase();
 				const gender = genderRaw === 'male' ? 'male' : genderRaw === 'female' ? 'female' : 'other';
 				if (!totals[department]) totals[department] = { male: 0, female: 0, other: 0 };
@@ -724,7 +751,7 @@
 				if (target === 'summaryDepartmentChart') return rows.filter(hasData).filter(row => summaryGroup(row) === label);
 				if (target === 'summaryPositionChart') { const group = $('summaryDepartmentPositionSelect').value; const terms = summarySubTerms(); return rows.filter(hasData).filter(row => summaryGroup(row) === group && (fieldValue(row, terms) || 'Unassigned') === label); }
 				if (target.startsWith('summary')) {
-					const terms = target.includes('Department') ? ['new division', 'department', 'division'] : target.includes('Position') ? ['new designation/position', 'designation', 'position', 'job title', 'job'] : target.includes('Status') ? ['employment status', 'status'] : ['gender', 'sex'];
+					const terms = target.includes('Department') ? ['department', 'new division', 'division'] : target.includes('Position') ? ['position', 'new designation/position', 'designation', 'job title', 'job'] : target.includes('Status') ? ['employment status', 'status'] : ['gender', 'sex'];
 					return rows.filter(hasData).filter(row => (fieldValue(row, terms) || (terms[0].includes('department') ? 'Unassigned' : 'Unspecified')) === label);
 				}
 				const range = currentReportRange();
@@ -739,8 +766,8 @@
 					const trendRange = weekRange(label);
 					return trendRange ? rows.filter(row => rowDateInRange(row, ['hiring date', 'hire date'], trendRange)) : [];
 				}
-				if (target === 'departmentPositionChart') { const department = $('departmentPositionSelect').value; const terms = ['new designation/position', 'designation', 'position', 'job title', 'job']; return rows.filter(row => rowDateInRange(row, ['hiring date', 'hire date'], range) && fieldValue(row, ['new division', 'department', 'division']) === department && (fieldValue(row, terms) || 'Unassigned') === label); }
-				if (target === 'genderDepartmentChart') { return rows.filter(row => rowDateInRange(row, ['hiring date', 'hire date'], range) && (fieldValue(row, ['new division', 'department', 'division']) || 'Unassigned') === label); }
+				if (target === 'departmentPositionChart') { const department = $('departmentPositionSelect').value; const terms = ['position', 'new designation/position', 'designation', 'job title', 'job']; return rows.filter(row => rowDateInRange(row, ['hiring date', 'hire date'], range) && fieldValue(row, ['department', 'new division', 'division']) === department && (fieldValue(row, terms) || 'Unassigned') === label); }
+				if (target === 'genderDepartmentChart') { return rows.filter(row => rowDateInRange(row, ['hiring date', 'hire date'], range) && (fieldValue(row, ['department', 'new division', 'division']) || 'Unassigned') === label); }
 				// Everything below is scoped by Hiring Date only, matching updateReports():
 				// an employee only counts toward the selected week if THEY were hired
 				// that week — 1st/2nd Eval and Regularization are checked for presence,
@@ -753,7 +780,7 @@
 					return [];
 				}
 				if (target === 'dayChart') { return rows.filter(row => { const date = hiredThisWeek(row); return date && date.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' }) === label; }); }
-				const terms = target === 'departmentChart' ? ['new division', 'department', 'division'] : target === 'statusChart' ? ['employment status', 'status'] : ['gender', 'sex'];
+				const terms = target === 'departmentChart' ? ['department', 'new division', 'division'] : target === 'statusChart' ? ['employment status', 'status'] : ['gender', 'sex'];
 				return rows.filter(row => hiredThisWeek(row) && (fieldValue(row, terms) || (target === 'departmentChart' ? 'Unassigned' : 'Unspecified')) === label);
 			};
 			let recordsDialogRows = [];
@@ -849,8 +876,8 @@
 				if (!hiredDate) return;
 				hires++;
 				days[hiredDate.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })]++;
-				const department = fieldValue(row, ['new division', 'department', 'division']) || 'Unassigned';
-				const status = fieldValue(row, ['employment status', 'status']) || 'Unspecified';
+				const department = fieldValue(row, ['department', 'new division', 'division']) || 'Unassigned';
+				const status = fieldValue(row, ['employment type', 'employment status', 'status']) || 'Unspecified';
 				const gender = fieldValue(row, ['gender', 'sex']) || 'Unspecified';
 				departments[department] = (departments[department] || 0) + 1;
 				statuses[status] = (statuses[status] || 0) + 1;
@@ -920,7 +947,64 @@
 		};
 
 		const cleanColumns = headers => { const used = new Set(); return headers.map((header, index) => { const base = String(header ?? '').trim() || `Column ${index + 1}`; let name = base, suffix = 2; while (used.has(name)) name = `${base} (${suffix++})`; used.add(name); return name; }); };
-		const matchHeaderColumns = headerRow => { const claimed = new Set(); const cells = headerRow.map((header, index) => ({ header, index, standard: null })); const isOldEmpId = header => /^old\s+emp\s*#?$/i.test(String(header ?? '').trim()); cells.forEach(cell => { if (String(cell.header ?? '').trim() === '' || isOldEmpId(cell.header)) return; const match = defaultColumns.find(column => !claimed.has(column) && normalizeHeader(column) === normalizeHeader(cell.header)); if (match) { cell.standard = match; claimed.add(match); } }); cells.forEach(cell => { if (cell.standard || String(cell.header ?? '').trim() === '' || isOldEmpId(cell.header)) return; const normalizedHeader = normalizeHeader(cell.header); const candidates = defaultColumns.filter(column => !claimed.has(column) && (normalizedHeader.includes(normalizeHeader(column)) || normalizeHeader(column).includes(normalizedHeader))); if (candidates.length === 1) { cell.standard = candidates[0]; claimed.add(candidates[0]); } }); return cells.filter(cell => cell.standard); };
+		// Header aliases map older spreadsheet labels to the current column layout.
+		// Canonical output columns match the user's updated employee table exactly.
+		const headerAliases = {
+			'STATUS': ['STATUS'],
+			'EMPLOYEE NUMBER': ['EMPLOYEE NUMBER', 'NEW EMP', 'EMPLOYEE NO', 'EMPLOYEE NO.', 'EMPLOYEE ID', 'EMP NO', 'EMP NO.', 'EMP #', 'EMPLOYEE #'],
+			'LAST NAME': ['LAST NAME', 'SURNAME'],
+			'FIRST NAME': ['FIRST NAME', 'GIVEN NAME'],
+			'MIDDLE NAME': ['MIDDLE NAME', 'MIDDLE INITIAL'],
+			'POSITION': ['POSITION', 'NEW DESIGNATION/POSITION', 'DESIGNATION', 'JOB TITLE'],
+			'DEPARTMENT': ['DEPARTMENT', 'NEW DIVISION/DEPARTMENT'],
+			'DIVISION': ['DIVISION'],
+			'BIRTHDAY (MM/DD/YYYY)': ['BIRTHDAY (MM/DD/YYYY)', 'BIRTHDAY', 'DATE OF BIRTH', 'DOB'],
+			'CONTACT NO.': ['CONTACT NO.', 'CONTACT NO', 'CONTACT NUMBER', 'MOBILE NO.', 'PHONE NUMBER'],
+			'EMAIL ADDRESS': ['EMAIL ADDRESS', 'EMAIL'],
+			'HIRING DATE': ['HIRING DATE', 'DATE HIRED', 'HIRE DATE'],
+			'YEAR HIRED': ['YEAR HIRED'],
+			'GENDER': ['GENDER', 'SEX'],
+			'EMPLOYMENT TYPE': ['EMPLOYMENT TYPE', 'EMPLOYMENT STATUS', 'EMPLOYEE STATUS'],
+			'COMPLETE ADDRESS': ['COMPLETE ADDRESS', 'ADDRESS', 'HOME ADDRESS'],
+			'TIN NO.': ['TIN NO.', 'TIN NO', 'TIN'],
+			'PHILHEALTH NO.': ['PHILHEALTH NO.', 'PHILHEALTH NO', 'PHILHEALTH NUMBER'],
+			'SSS NO.': ['SSS NO.', 'SSS NO', 'SSS NUMBER'],
+			'PAGIBIG NO.': ['PAGIBIG NO.', 'PAGIBIG NO', 'PAG-IBIG NO.', 'PAG-IBIG NO', 'PAGIBIG NUMBER'],
+			'MONTHLY COMPENSATION': ['MONTHLY COMPENSATION', 'MONTHLY SALARY', 'COMPENSATION'],
+			'DATE OF 1ST EVAL': ['DATE OF 1ST EVAL', 'DATE OF FIRST EVAL', '1ST EVAL DATE'],
+			'DATE OF 2ND EVAL': ['DATE OF 2ND EVAL', 'DATE OF SECOND EVAL', '2ND EVAL DATE'],
+			'DATE OF REGULARIZATION': ['DATE OF REGULARIZATION', 'REGULARIZATION DATE']
+		};
+		const normalizedHeaderAliases = new Map();
+		Object.entries(headerAliases).forEach(([canonical, aliases]) => {
+			[canonical, ...aliases].forEach(alias => normalizedHeaderAliases.set(normalizeHeader(alias), canonical));
+		});
+		const matchHeaderColumns = headerRow => {
+			const claimed = new Set();
+			const cells = headerRow.map((header, index) => ({ header, index, standard: null }));
+			cells.forEach(cell => {
+				const raw = String(cell.header ?? '').trim();
+				if (!raw || /^old\s+emp\s*#?$/i.test(raw)) return;
+				const normalized = normalizeHeader(raw);
+				let canonical = normalizedHeaderAliases.get(normalized);
+				// Accept harmless label variants such as a format suffix or punctuation.
+				if (!canonical) {
+					const possible = defaultColumns.filter(column => {
+						const aliases = headerAliases[column] || [column];
+						return aliases.some(alias => {
+							const aliasNorm = normalizeHeader(alias);
+						return aliasNorm.length >= 5 && (normalized.includes(aliasNorm) || aliasNorm.includes(normalized));
+						});
+					});
+					if (possible.length === 1) canonical = possible[0];
+				}
+				if (canonical && !claimed.has(canonical)) {
+					cell.standard = canonical;
+					claimed.add(canonical);
+				}
+			});
+			return cells.filter(cell => cell.standard);
+		};
 		// Shared by the file-picker import and the Google Sheets API import below.
 		// The source sheet can contain title rows, summary cells, repeated labels, or
 		// stray cells such as "PHILHEALTH NO." before the actual employee table.
@@ -938,7 +1022,7 @@
 					return count + (normalizeHeader(original) === normalizeHeader(match.standard) ? 1 : 0);
 				}, 0);
 				const recognized = matches.length;
-				const anchorNames = new Set(['STATUS', 'NEW EMP', 'FULL NAME (Surname, First, Middle)', 'NEW DESIGNATION/POSITION', 'NEW DIVISION/DEPARTMENT', 'HIRING DATE', 'GENDER', 'EMPLOYMENT STATUS', 'PHILHEALTH NO.']);
+				const anchorNames = new Set(['STATUS', 'EMPLOYEE NUMBER', 'LAST NAME', 'FIRST NAME', 'POSITION', 'DEPARTMENT', 'HIRING DATE', 'GENDER', 'EMPLOYMENT TYPE', 'PHILHEALTH NO.']);
 				const anchorCount = matches.filter(match => anchorNames.has(match.standard)).length;
 				return { index, row, matches, exactCount, recognized, anchorCount };
 		}).filter(candidate => candidate.recognized > 0);
@@ -1061,7 +1145,8 @@
 				// A cache-busting query param forces a fresh request through the browser's
 				// own cache. The Sheets API itself always reads the live sheet — there's
 				// no publish-to-web style server-side cache to fight here.
-				const response = await fetch(`${SHEETS_API_URL()}&_=${Date.now()}`, { cache: 'no-store' });
+				const actualSheetTitle = await getActualSheetTitle();
+				const response = await fetch(`${SHEETS_API_URL(actualSheetTitle)}&_=${Date.now()}`, { cache: 'no-store' });
 				if (!response.ok) {
 					const body = await response.json().catch(() => null);
 					if (response.status === 401 || response.status === 403) {
